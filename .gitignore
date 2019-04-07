@@ -5,6 +5,10 @@ __pycache__/
 
 # C extensions
 *.so
+data
+raw_data
+.idea
+.DS_Store
 
 # Distribution / packaging
 .Python

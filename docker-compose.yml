@@ -1,0 +1,14 @@
+version: '3'
+services:
+  db:
+    image: postgres
+    container_name: dl-loan-data
+    restart: always
+    volumes:
+      - ./data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: loan_performance
+      POSTGRES_USER: gwu-dl-user
+      POSTGRES_PASSWORD: Gw_ml2_@
+    ports:
+     - 5432:5432
