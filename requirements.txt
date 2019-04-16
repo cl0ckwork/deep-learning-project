@@ -1,1 +1,8 @@
-psycopg2==2.7.5
+numpy==1.14.0
+numpydoc==0.7.0
+pandas==0.22.0
+torch==1.0.1.post2
+torchvision==0.2.2.post3
+torchviz==0.0.1
+tornado==4.5.3
+SQLAlchemy==1.2.1
