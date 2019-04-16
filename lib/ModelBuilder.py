@@ -262,3 +262,179 @@ class ModelRunner:
 
     def get_results(self):
         return np.asarray(self.results).reshape(-1, 2)
+
+
+# GENERAL USE
+"""
+try:
+    from lib.ModelBuilder import Builder, ModelRunner, LayerBuilder
+    from lib.cm_heatmap import print_confusion_matrix
+    from lib.auc import auc_classes
+except:
+    from .lib.ModelBuilder import Builder, ModelRunner, LayerBuilder
+    from .lib.cm_heatmap import print_confusion_matrix
+    from .lib.auc import auc_classes
+"""
+
+"""
+# --------------------------------------------------------------------------------------------
+def test(name, layers, activations, optim):
+    print('\n** TEST: {} | # Layers: {} | # Activations: {} | Optimizer: {} **'.format(name, len(layers), len(activations), optim))
+
+    net = Builder(layers=layers, activations=activations)
+    print('Model: ', net)
+
+    runner = ModelRunner(
+        model=net,
+        device=device,
+        batch_size=batch_size,
+        data_size=len(train_set),
+        is_image=True,
+        dimensions=dimensions
+    )
+
+    # --------------------------------------------------------------------------------------------
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate)
+    runner.add_performance_index(criterion)
+    runner.add_optimizer(optimizer)
+    # --------------------------------------------------------------------------------------------
+    runner.run_for_epochs(data_loader=train_loader, epochs=num_epochs)
+    # --------------------------------------------------------------------------------------------
+    correct, total = runner.eval(test_loader)
+    outputs = runner.pred_output
+    print('Accuracy of the network on the 10000 test images: %d %%' % (100 * correct / total))
+
+    _, predicted = torch.max(outputs.data, 1)
+    print('Predicted: ', ' '.join('%5s' % classes[predicted[j]] for j in range(4)))
+    # --------------------------------------------------------------------------------------------
+    class_correct, class_total = runner.eval_classes(test_loader)
+    for i in range(10):
+        print('Accuracy of %5s : %2d %%' % (classes[i], 100 * class_correct[i] / class_total[i]))
+    # --------------------------------------------------------------------------------------------
+    torch.save(net.state_dict(), 'model_{}.pkl'.format(name))
+    print("END TEST: {}".format(name))
+
+
+if __name__ == '__main__':
+    layers_1 = [
+        nn.Linear(input_size, hidden_size),
+        nn.Dropout(),
+        nn.ReLU(),
+        nn.Linear(hidden_size, num_classes)
+    ]
+    activations_1 = []
+    test(1, layers_1, activations_1, 'Adam')
+"""
+
+#CONFUSION MATRIX
+"""
+def test(name, layers, activations, optim):
+    print('\n** TEST: {} | # Layers: {} | # Activations: {} | Optimizer: {} **'.format(name, len(layers), len(activations), optim))
+
+    net = Builder(layers=layers, activations=activations)
+    print('Model: ', net)
+
+    runner = ModelRunner(
+        model=net,
+        device=device,
+        batch_size=batch_size,
+        data_size=len(train_set),
+        is_image=True,
+        dimensions=dimensions
+    )
+
+    # --------------------------------------------------------------------------------------------
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate)
+    runner.add_performance_index(criterion)
+    runner.add_optimizer(optimizer)
+    # --------------------------------------------------------------------------------------------
+    runner.run_for_epochs(data_loader=train_loader, epochs=num_epochs)
+    # --------------------------------------------------------------------------------------------
+    correct, total = runner.eval(test_loader)
+    outputs = runner.pred_output
+    print('Accuracy of the network on the 10000 test images: %d %%' % (100 * correct / total))
+
+    _, predicted = torch.max(outputs.data, 1)
+    print('Predicted: ', ' '.join('%5s' % classes[predicted[j]] for j in range(4)))
+    # --------------------------------------------------------------------------------------------
+    class_correct, class_total = runner.eval_classes(test_loader)
+    for i in range(10):
+        print('Accuracy of %5s : %2d %%' % (classes[i], 100 * class_correct[i] / class_total[i]))
+    # --------------------------------------------------------------------------------------------
+    torch.save(net.state_dict(), 'model_{}.pkl'.format(name))
+    print("END TEST: {}".format(name))
+    return net, runner
+
+
+if __name__ == '__main__':
+    from sklearn.metrics import confusion_matrix
+    layers_1 = [
+        nn.Linear(input_size, hidden_size),
+        nn.ReLU(),
+        nn.Linear(hidden_size, num_classes)
+    ]
+    activations_1 = []
+    model, runner = test(1, layers_1, activations_1, 'Adam')
+    results = runner.get_results()
+    cm = confusion_matrix(results[:, 1], results[:, 0])
+    print(cm)
+    print_confusion_matrix(cm, list(classes))
+    
+"""
+# AUC
+"""
+def test(name, layers, activations, optim):
+    print('\n** TEST: {} | # Layers: {} | # Activations: {} | Optimizer: {} **'.format(name, len(layers), len(activations), optim))
+
+    net = Builder(layers=layers, activations=activations)
+    print('Model: ', net)
+
+    net.layers[-1].register_forward_hook(get_activation('last_layer'))
+
+    runner = ModelRunner(
+        model=net,
+        device=device,
+        batch_size=batch_size,
+        data_size=len(train_set),
+        is_image=True,
+        dimensions=dimensions
+    )
+
+    # --------------------------------------------------------------------------------------------
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate)
+    runner.add_performance_index(criterion)
+    runner.add_optimizer(optimizer)
+    # --------------------------------------------------------------------------------------------
+    runner.run_for_epochs(data_loader=train_loader, epochs=num_epochs)
+    # --------------------------------------------------------------------------------------------
+    correct, total = runner.eval(test_loader)
+    outputs = runner.pred_output
+    print('Accuracy of the network on the 10000 test images: %d %%' % (100 * correct / total))
+
+    _, predicted = torch.max(outputs.data, 1)
+    print('Predicted: ', ' '.join('%5s' % classes[predicted[j]] for j in range(4)))
+    # --------------------------------------------------------------------------------------------
+    class_correct, class_total = runner.eval_classes(test_loader)
+    for i in range(10):
+        print('Accuracy of %5s : %2d %%' % (classes[i], 100 * class_correct[i] / class_total[i]))
+    # --------------------------------------------------------------------------------------------
+    torch.save(net.state_dict(), 'model_{}.pkl'.format(name))
+    print("END TEST: {}".format(name))
+    return net, runner
+
+
+if __name__ == '__main__':
+    from sklearn.metrics import confusion_matrix
+    layers_1 = [
+        nn.Linear(input_size, hidden_size),
+        nn.ReLU(),
+        nn.Linear(hidden_size, num_classes),
+    ]
+    activations_1 = []
+    model, runner = test(1, layers_1, activations_1, 'Adam')
+    results = runner.get_results()
+    auc_classes(classes, predictions=results[:, 0], labels=results[:, 1])
+"""
