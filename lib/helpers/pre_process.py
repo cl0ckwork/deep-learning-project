@@ -1,11 +1,9 @@
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.preprocessing import OneHotEncoder, StandardScaler, LabelEncoder
 import numpy as np
 import pickle
 from os import listdir
-
 from lib.db import connect
-
-PRE_PROCESSING_ENCODERS_PICKLE_PATH = '../pickles/pre_processing_encoders.pkl'
+from lib.enums import PRE_PROCESSING_ENCODERS_PICKLE_PATH
 
 
 def load_pickle(path):
@@ -26,7 +24,7 @@ class Encoding:
     def __init__(self, table=None):
         self.table = table
 
-    def categorical(self, name, categories):
+    def categorical_(self, name, categories):
         if not hasattr(self, name):
             ohe = OneHotEncoder(sparse=False)
             setattr(self, name, ohe)
@@ -39,7 +37,7 @@ class Encoding:
         except Exception as ex:
             print(ex)
 
-    def numerical(self, name, items):
+    def numerical_(self, name, items):
         if not hasattr(self, name):
             ss = StandardScaler()
             setattr(self, name, ss)
@@ -47,8 +45,19 @@ class Encoding:
             ss = getattr(self, name)
 
         ss.partial_fit(items)
-        print('StandardScaler:', name, ss.mean_, ss.var_)
+        # print('StandardScaler:', name, ss.mean_, ss.var_)
         return ss
+
+    def target_(self, name='target', items=None):
+        if not hasattr(self, name):
+            le = LabelEncoder()
+            setattr(self, name, le)
+        else:
+            le = getattr(self, name)
+
+        le.fit(items)
+        print('LabelEncoder:', name, le.classes_)
+        return le
 
     def apply_encoding(self, name, categories):
         if not hasattr(self, name):
@@ -60,7 +69,7 @@ class Encoding:
         name = "{}/{}_encoder.pkl".format(path or '.', self.table)
         with open(name, "wb") as outfile:
             pickled = pickle.dump(self, outfile)
-        print("pickled: {} encoders @ {}".format(self.table, name))
+        # print("pickled: {} encoders @ {}".format(self.table, name))
         return pickled
 
     def load(self, path=None):
@@ -69,26 +78,27 @@ class Encoding:
 
 
 class PreProcessors:
-    __slots__ = ('_conn', 'encoders', '_excluded_columns')
+    __slots__ = ('_conn', 'encoders', '_excluded_columns', 'target_column')
 
-    def __init__(self, conn=None, excluded_columns=None):
+    def __init__(self, conn=None, excluded_columns=None, target_column=None):
         self._conn = conn
         self.encoders = dict()
         self._excluded_columns = excluded_columns or []
+        self.target_column = target_column
 
     def get_column_by_type(self, table, type, names_only=False):
-        cur = conn.execute("""
+        cur = self._conn.execute("""
            SELECT column_name
            FROM information_schema.columns
            WHERE table_name = '{}'
            AND data_type = '{}'
            """.format(table, type)
-                           )
+                                 )
         if names_only:
             return cur
 
         for name, *others in cur:
-            if name not in self._excluded_columns:
+            if name not in self._excluded_columns and name != self.target_column:
                 c = self._conn.execute(
                     "SELECT DISTINCT({0}) FROM {1} ORDER BY {0} ASC".format(name, table))
                 categories = list(map(lambda x: x if x[0] else ['X'], c))
@@ -99,15 +109,24 @@ class PreProcessors:
         encode = self.encoders.get('{}_categorical'.format(table), ActiveEncoder()).encoder or Encoding(table)
         names = []
         for name, col in items:
-            encode.categorical(name, col)
+            encode.categorical_(name, col)
             names.append(name)
         self.encoders['{}_categorical'.format(table)] = ActiveEncoder(encoder=encode, columns=names)
         return encode
 
     def encode_numerical_columns(self, table, df):
         encode = self.encoders.get('{}_numerical'.format(table), ActiveEncoder()).encoder or Encoding(table)
-        encode.numerical('standard', df)
+        encode.numerical_('standard', df)
         self.encoders['{}_numerical'.format(table)] = ActiveEncoder(encoder=encode, columns=df.columns.tolist())
+        return encode
+
+    def encode_target_column(self, table, targets=None):
+        q = "SELECT DISTINCT({0}) FROM {1} ORDER BY {0} ASC".format(self.target_column, table)
+        targets = targets or list(map(lambda x: x if x[0] else ['X'], self._conn.execute(q)))
+
+        encode = self.encoders.get('target', ActiveEncoder()).encoder or Encoding('target')
+        encode.target_('target', np.asarray(targets))
+        self.encoders['target'] = ActiveEncoder(encoder=encode, columns=[self.target_column])
         return encode
 
     def save(self, path=None):
@@ -147,7 +166,7 @@ if __name__ == '__main__':
         'disposition_date_string', 'foreclosure_date_string', 'product_type'
     ]
 
-    pp = PreProcessors(conn=conn, excluded_columns=EXCLUDED)
+    pp = PreProcessors(conn=conn, excluded_columns=EXCLUDED, target_column='current_loan_delinquency_status')
     pp.load(PRE_PROCESSING_ENCODERS_PICKLE_PATH)
     pp.encode_categorical_columns('acquisition')
     pp.encode_categorical_columns('performance')
