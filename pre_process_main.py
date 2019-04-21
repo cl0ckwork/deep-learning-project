@@ -1,12 +1,21 @@
 import pandas as pd
 import numpy as np
+import argparse
 
 # custom modules
 from lib.db import connect
-# from lib.enums import ACQUISITION_RAW_COLUMN_NAMES, PERFORMANCE_RAW_COLUMN_NAMES
 from lib.helpers.pre_process import PreProcessors
 from lib.enums import PRE_PROCESSING_ENCODERS_PICKLE_PATH, EXCLUDED_CATEGORY_COLUMNS
 from lib.helpers.load_data import main as load_data
+
+
+def str2bool(v):
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 
 def remove_hidden(cls):
@@ -26,7 +35,7 @@ def check_pre_processor():
     print(' ***  END CHECK *** \n')
 
 
-def main(conn=None, dry_run=False):
+def main(conn=None, dry_run=False, save=True):
     pp = PreProcessors(
         conn=conn,
         excluded_columns=EXCLUDED_CATEGORY_COLUMNS,
@@ -42,9 +51,44 @@ def main(conn=None, dry_run=False):
 
 
 if __name__ == '__main__':
-    # connection = connect(local=True)
-    connection = connect(local=False)
+    parser = argparse.ArgumentParser(description='Pre-process and load data.')
+    parser.add_argument("--dry_run",
+                        type=str2bool,
+                        nargs='?',
+                        const=True,
+                        help="insert data into database?"
+                        )
+    parser.add_argument("--local",
+                        type=str2bool,
+                        nargs='?',
+                        const=True,
+                        help="use local database?"
+                        )
+    parser.add_argument("--check",
+                        type=str2bool,
+                        nargs='?',
+                        const=True,
+                        help="check pre-processors for encoders?"
+                        )
+    parser.add_argument("--save",
+                        type=str2bool,
+                        nargs='?',
+                        const=True,
+                        help="save pre-processors as pickle?"
+                        )
+    parser.add_argument("--host",
+                        nargs='?',
+                        default=None,
+                        help="Database host to connect to"
+                        )
+
+    args = parser.parse_args()
+    print(args)
+
     np.seterr(divide='ignore', invalid='ignore')
     pd.set_option('display.max_columns', None)  # or 1000
-    main(conn=connection)
-    check_pre_processor()
+
+    connection = connect(local=args.local, host=args.host)
+    main(conn=connection, dry_run=args.dry_run, save=args.save)
+    if args.check:
+        check_pre_processor()

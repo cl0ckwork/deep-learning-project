@@ -1,0 +1,9 @@
+data
+**/raw_data
+DATS6203_12-Group-Proposal.pdf
+DockerFile
+docker-compose.yml
+README.md
+.git
+.gitignore
+create_machine.sh

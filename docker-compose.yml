@@ -12,3 +12,12 @@ services:
       POSTGRES_PASSWORD: Gw_ml2_@
     ports:
      - 5432:5432
+
+  python:
+    image: gwu-dl-py
+    container_name: anaconda
+    volumes:
+      - ~/raw_data:/app/raw_data
+    environment:
+      DB_HOST: db
+

@@ -1,8 +1,12 @@
+# try:
+#     import modin.pandas as pd
+# except ImportError:
+#     print('Using default pandas')
 import pandas as pd
 import numpy as np
 import os
-# from multiprocessing import Pool
 from sqlalchemy.exc import IntegrityError
+# from multiprocessing import Pool
 # from sqlalchemy import event
 # from itertools import repeat
 
