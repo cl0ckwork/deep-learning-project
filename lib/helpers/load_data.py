@@ -41,7 +41,9 @@ def read_in_data(file_path=None):
 
 
 def collect_raw_data_from_dirs(path=None):
+    print('SEARCHING:', os.getcwd(), path)
     for r, d, f in os.walk(path or "../raw_data"):
+        print('scanning', r, d, f)
         if not d:
             iterators = []
             for file in f:

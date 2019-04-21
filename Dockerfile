@@ -1,11 +1,13 @@
-FROM continuumio/anaconda3:2019.03-alpine
-MAINTAINER lukebogacz@gmail.com
+FROM continuumio/miniconda3
 
 RUN mkdir /app
-WORKDIR /app
-COPY . .
+RUN mkdir /app/raw_data
 
+WORKDIR /app
+
+ADD requirements.loader.txt requirements.loader.txt
 RUN pip install -r requirements.loader.txt
-RUN pip freeze
+
+COPY . .
 
 ENTRYPOINT python pre_process_main.py --dry_run --check

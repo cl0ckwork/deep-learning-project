@@ -16,8 +16,13 @@ services:
   python:
     image: gwu-dl-py
     container_name: anaconda
+    depends_on:
+      - db
+    build: .
     volumes:
       - ~/raw_data:/app/raw_data
+      - ~/pickles:/app/pickles
     environment:
       DB_HOST: db
+    command: python pre_process_main.py --dry_run --check --host db
 

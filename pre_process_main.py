@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import argparse
+from os import environ
 
 # custom modules
 from lib.db import connect
@@ -35,19 +36,22 @@ def check_pre_processor():
     print(' ***  END CHECK *** \n')
 
 
-def main(conn=None, dry_run=False, save=True):
+def main(conn=None, dry_run=False, load=False, save=True):
     pp = PreProcessors(
         conn=conn,
         excluded_columns=EXCLUDED_CATEGORY_COLUMNS,
         target_column='current_loan_delinquency_status'
     )
-    # pp.load(PRE_PROCESSING_ENCODERS_PICKLE_PATH)
+    if load:
+        pp.load(PRE_PROCESSING_ENCODERS_PICKLE_PATH)
+
     load_data(path='raw_data', conn=conn, pre_processor=pp, dry_run=dry_run)
 
     pp.encode_categorical_columns('acquisition')
     pp.encode_categorical_columns('performance')
     pp.encode_target_column('performance')
-    pp.save(PRE_PROCESSING_ENCODERS_PICKLE_PATH)
+    if save:
+        pp.save(PRE_PROCESSING_ENCODERS_PICKLE_PATH)
 
 
 if __name__ == '__main__':
@@ -56,30 +60,41 @@ if __name__ == '__main__':
                         type=str2bool,
                         nargs='?',
                         const=True,
+                        default=False,
                         help="insert data into database?"
                         )
     parser.add_argument("--local",
                         type=str2bool,
                         nargs='?',
                         const=True,
+                        default=False,
                         help="use local database?"
                         )
     parser.add_argument("--check",
                         type=str2bool,
                         nargs='?',
                         const=True,
+                        default=False,
                         help="check pre-processors for encoders?"
                         )
     parser.add_argument("--save",
                         type=str2bool,
                         nargs='?',
                         const=True,
+                        default=False,
                         help="save pre-processors as pickle?"
+                        )
+    parser.add_argument("--load",
+                        type=str2bool,
+                        nargs='?',
+                        const=True,
+                        default=False,
+                        help="load pre-processors from pickle before processing?"
                         )
     parser.add_argument("--host",
                         nargs='?',
-                        default=None,
-                        help="Database host to connect to"
+                        default=environ.get('DB_HOST'),
+                        help="Database host to connect to, default: {} [environ.DB_HOST]".format(environ.get('DB_HOST'))
                         )
 
     args = parser.parse_args()
@@ -91,4 +106,7 @@ if __name__ == '__main__':
     connection = connect(local=args.local, host=args.host)
     main(conn=connection, dry_run=args.dry_run, save=args.save)
     if args.check:
-        check_pre_processor()
+        try:
+            check_pre_processor()
+        except Exception as ex:
+            print('ERROR During check:', repr(ex))
