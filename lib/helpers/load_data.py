@@ -5,6 +5,7 @@
 import pandas as pd
 import numpy as np
 import os
+import glob
 from sqlalchemy.exc import IntegrityError
 # from multiprocessing import Pool
 # from sqlalchemy import event
@@ -40,17 +41,21 @@ def read_in_data(file_path=None):
     )
 
 
+def get_date(path):
+    n, d = os.path.basename(path).replace('.txt', '').split('_')
+    return d
+
+
 def collect_raw_data_from_dirs(path=None):
     print('SEARCHING:', os.getcwd(), path)
-    for r, d, f in os.walk(path or "../raw_data"):
-        print('scanning', r, d, f)
-        if not d:
-            iterators = []
-            for file in f:
-                file_path = '{}/{}'.format(r, file)
-                print('READING: {}'.format(file_path))
-                iterators.append(read_in_data(file_path))
-            yield iterators
+    files = glob.glob(os.path.join(path, 'Acquisition*'))
+    sorted_files = sorted(files, key=get_date)
+    print('FILES:', sorted_files)
+    for file_path in sorted_files:
+        if file_path.endswith('.txt'):
+            perf_file_path = file_path.replace('Acquisition', 'Performance')
+            print('READING: {} & {}'.format(file_path, perf_file_path))
+            yield read_in_data(file_path), read_in_data(perf_file_path)
 
 
 class Transformer:
@@ -143,7 +148,6 @@ def iterate_and_load(iterator, table=None, conn=None, transformer=None, dry_run=
         # count += to_sql(df, table)
         # count += df.shape[0]
         print('LOADED: #{}'.format(count))
-        break
     print('LOADED TOTAL: {}'.format(count))
 
 
@@ -169,6 +173,7 @@ if __name__ == '__main__':
     pp = PreProcessors()
     # pp.load(PRE_PROCESSING_ENCODERS_PICKLE_PATH)
     main(path='../raw_data', pre_processor=pp)
+    os.listdir('../pickles')
     pp.save(PRE_PROCESSING_ENCODERS_PICKLE_PATH)
 
     # test encoders

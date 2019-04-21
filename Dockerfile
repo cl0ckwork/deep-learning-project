@@ -10,4 +10,4 @@ RUN pip install -r requirements.loader.txt
 
 COPY . .
 
-ENTRYPOINT python pre_process_main.py --dry_run --check
+ENTRYPOINT python pre_process_main.py

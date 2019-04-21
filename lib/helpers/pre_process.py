@@ -1,9 +1,11 @@
 from sklearn.preprocessing import OneHotEncoder, StandardScaler, LabelEncoder
 import numpy as np
 import pickle
-from os import listdir
+from os import listdir, environ
 from lib.db import connect
 from lib.enums import PRE_PROCESSING_ENCODERS_PICKLE_PATH
+
+LOGGING = environ.get('LOGGING', False) == 'true'
 
 
 def load_pickle(path):
@@ -26,13 +28,14 @@ class Encoding:
 
     def categorical_(self, name, categories):
         if not hasattr(self, name):
-            ohe = OneHotEncoder(sparse=False)
+            ohe = OneHotEncoder(sparse=False, categories='auto')
             setattr(self, name, ohe)
         else:
             ohe = getattr(self, name)
         try:
             ohe.fit(categories)
-            print('OneHotEncoder:', name, ohe.categories_)
+            if LOGGING:
+                print('OneHotEncoder:', name, ohe.categories_)
             return ohe
         except Exception as ex:
             print(ex)
@@ -45,7 +48,8 @@ class Encoding:
             ss = getattr(self, name)
 
         ss.partial_fit(items)
-        # print('StandardScaler:', name, ss.mean_, ss.var_)
+        if LOGGING:
+            print('StandardScaler:', name, ss.mean_, ss.var_)
         return ss
 
     def target_(self, name='target', items=None):
@@ -56,7 +60,8 @@ class Encoding:
             le = getattr(self, name)
 
         le.fit(items)
-        print('LabelEncoder:', name, le.classes_)
+        if LOGGING:
+            print('LabelEncoder:', name, le.classes_)
         return le
 
     def apply_encoding(self, name, categories):
@@ -125,7 +130,7 @@ class PreProcessors:
         targets = targets or list(map(lambda x: x if x[0] else ['X'], self._conn.execute(q)))
 
         encode = self.encoders.get('target', ActiveEncoder()).encoder or Encoding('target')
-        encode.target_('target', np.asarray(targets))
+        encode.target_('target', np.asarray(targets).ravel())
         self.encoders['target'] = ActiveEncoder(encoder=encode, columns=[self.target_column])
         return encode
 

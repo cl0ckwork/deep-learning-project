@@ -1,11 +1,13 @@
 data
-**/raw_data
 raw_data
+pickles
+
 DATS6203_12-Group-Proposal.pdf
 DockerFile
 docker-compose.yml
 README.md
+create_machine.sh
+
 .git
 .gitignore
-create_machine.sh
 .idea

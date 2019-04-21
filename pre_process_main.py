@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import argparse
-from os import environ
+from os import environ, listdir
 
 # custom modules
 from lib.db import connect
@@ -105,6 +105,7 @@ if __name__ == '__main__':
 
     connection = connect(local=args.local, host=args.host)
     main(conn=connection, dry_run=args.dry_run, save=args.save)
+    print('pickles:', listdir('pickles'))
     if args.check:
         try:
             check_pre_processor()

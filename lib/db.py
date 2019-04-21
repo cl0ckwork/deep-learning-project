@@ -3,7 +3,7 @@ from sqlalchemy import create_engine
 
 
 def connect(local=True, **kwargs):
-    host = dict(host='localhost') if local else dict(host=environ.get('DB_HOST') or "34.74.8.14")
+    host = dict(host='localhost') if local else dict(host=kwargs.pop('host') or environ.get('DB_HOST') or "34.74.8.14")
     connection = dict(database="loan_performance", user="gwu-dl-user", password="Gw_ml2_@")
     print('Connecting:', host, kwargs)
     try:

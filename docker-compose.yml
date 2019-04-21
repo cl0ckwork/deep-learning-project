@@ -20,9 +20,10 @@ services:
       - db
     build: .
     volumes:
-      - ~/raw_data:/app/raw_data
-      - ~/pickles:/app/pickles
+      - /home/docker-user/raw_data:/app/raw_data
+      - /home/docker-user/pickles:/app/pickles
     environment:
       DB_HOST: db
-    command: python pre_process_main.py --dry_run --check --host db
+      LOGGING: "true"
+    entrypoint: python -W ignore pre_process_main.py --save --check
 
