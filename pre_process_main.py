@@ -23,39 +23,55 @@ def remove_hidden(cls):
     return [m for m in dir(cls) if not m.startswith('_') and not m.endswith('_')]
 
 
-def check_pre_processor():
-    test = PreProcessors()
-    test.load(PRE_PROCESSING_ENCODERS_PICKLE_PATH)
-    print('\n *** CHECKING PRE PROCESSORS *** ')
+def check_pre_processor(pp=None, path=None):
+    if not pp:
+        test = PreProcessors()
+        test.load(path)
+    else:
+        test = pp
+    print('\n *** CHECKING PRE PROCESSORS *** \n')
     print('PreProcessor:', remove_hidden(test))
     for name, encoder in test.encoders.items():
+        print(' --- ')
         print('Encoder: {}'.format(name))
         print('\t columns:', encoder.columns)
         print('\t columns length:', len(encoder.columns))
         print('\t encoder methods:', remove_hidden(encoder.encoder))
-    print(' ***  END CHECK *** \n')
+    print('\n ***  END CHECK *** \n')
 
 
-def main(conn=None, dry_run=False, load=False, save=True):
+def main(conn=None, dry_run=False, load=False, save=True, pp_data=True, pp_cats=True):
     pp = PreProcessors(
         conn=conn,
         excluded_columns=EXCLUDED_CATEGORY_COLUMNS,
-        target_column='current_loan_delinquency_status'
+        target_column='sdq'
     )
+
     if load:
         pp.load(PRE_PROCESSING_ENCODERS_PICKLE_PATH)
 
-    load_data(path='raw_data', conn=conn, pre_processor=pp, dry_run=dry_run)
+    if pp_data:
+        load_data(path='raw_data', conn=conn, pre_processor=pp, dry_run=dry_run)
 
-    # pp.encode_categorical_columns('acquisition')
-    # pp.encode_categorical_columns('performance')
-    # pp.encode_target_column('performance')
+    if pp_cats:
+        print('ENCODING: categorical features')
+        pp.encode_categorical_columns('acquisition')
+        # pp.encode_categorical_columns('performance')
+        # pp.encode_target_column('performance')
     if save:
         pp.save(PRE_PROCESSING_ENCODERS_PICKLE_PATH)
+    return pp
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Pre-process and load data.')
+    parser.add_argument("--run",
+                        type=str2bool,
+                        nargs='?',
+                        const=True,
+                        default=True,
+                        help="run the loading process?"
+                        )
     parser.add_argument("--dry_run",
                         type=str2bool,
                         nargs='?',
@@ -91,10 +107,27 @@ if __name__ == '__main__':
                         default=False,
                         help="load pre-processors from pickle before processing?"
                         )
+    parser.add_argument("--pp_data",
+                        type=str2bool,
+                        nargs='?',
+                        const=True,
+                        help="load data and pre-processor numerical information?"
+                        )
+    parser.add_argument("--pp_cats",
+                        type=str2bool,
+                        nargs='?',
+                        const=True,
+                        help="pre-process categorical data?"
+                        )
     parser.add_argument("--host",
                         nargs='?',
                         default=environ.get('DB_HOST'),
                         help="Database host to connect to, default: {} [environ.DB_HOST]".format(environ.get('DB_HOST'))
+                        )
+    parser.add_argument("--pickle",
+                        nargs='?',
+                        default=PRE_PROCESSING_ENCODERS_PICKLE_PATH,
+                        help="check a pickle by path"
                         )
 
     args = parser.parse_args()
@@ -104,10 +137,19 @@ if __name__ == '__main__':
     pd.set_option('display.max_columns', None)  # or 1000
 
     connection = connect(local=args.local, host=args.host)
-    main(conn=connection, dry_run=args.dry_run, save=args.save)
+    if args.run:
+        main(
+            conn=connection,
+            dry_run=args.dry_run,
+            save=args.save,
+            load=args.load,
+            pp_data=args.pp_data,
+            pp_cats=args.pp_cats
+        )
+
     print('pickles:', listdir('pickles'))
     if args.check:
         try:
-            check_pre_processor()
+            check_pre_processor(path=args.pickle)
         except Exception as ex:
             print('ERROR During check:', repr(ex))

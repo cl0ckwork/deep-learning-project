@@ -84,13 +84,13 @@ class LayerBuilder:
 class Builder(nn.Module):
     __slots__ = ('layer_type', 'activations_type', 'layers', 'activations', 'output')
 
-    def __init__(self, layers, activations):
+    def __init__(self, layers, activations=None):
         super(Builder, self).__init__()
         self.layer_type = self._validate_init(layers)
-        self.activations_type = self._validate_init(activations)
+        # self.activations_type = self._validate_init(activations)
 
         self.layers = nn.ModuleList(layers)
-        self.activations = nn.ModuleList(activations)
+        self.activations = nn.ModuleList(activations) if activations else []
         self.output = None
 
     @staticmethod

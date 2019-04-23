@@ -144,10 +144,13 @@ class PreProcessors:
         return pickled
 
     def load(self, path):
+        print('Attempting load of:', path)
         pp = load_pickle(path)
         if pp and hasattr(pp, 'encoders'):
             print('Loading pre-processors from {}, adding {} encoders'.format(path, len(pp.encoders)))
             self.encoders = pp.encoders
+        else:
+            print('Pre-processor has no encoders', dir(pp))
 
     def save_individual(self, path=None):
         for name, encoder_dict in self.encoders.items():

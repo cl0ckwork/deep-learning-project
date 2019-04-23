@@ -25,6 +25,8 @@ PERFORMANCE_RAW_COLUMN_NAMES = ['loan_id', 'monthly_reporting_period', 'servicer
 PERFORMANCE_DB_COLUMN_NAMES = ['id'] + PERFORMANCE_RAW_COLUMN_NAMES
 
 PRE_PROCESSING_ENCODERS_PICKLE_PATH = 'pickles/pre_processing_encoders.pkl'
+LIVE_PRE_PROCESSING_ENCODERS_PICKLE_PATH = 'pickles/LIVE.pre_processing_encoders.pkl'
+
 EXCLUDED_CATEGORY_COLUMNS = [
     'origination_date_string', 'first_payment_date_string',
     'monthly_reporting_period', 'maturity_date_string',
