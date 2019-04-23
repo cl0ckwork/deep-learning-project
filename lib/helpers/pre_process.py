@@ -162,7 +162,7 @@ class PreProcessors:
 
 
 if __name__ == '__main__':
-    conn = connect(local=True)
+    conn = connect(local=True).connect()
 
     EXCLUDED = [
         'origination_date_string', 'first_payment_date_string',

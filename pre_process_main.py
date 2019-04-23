@@ -47,9 +47,9 @@ def main(conn=None, dry_run=False, load=False, save=True):
 
     load_data(path='raw_data', conn=conn, pre_processor=pp, dry_run=dry_run)
 
-    pp.encode_categorical_columns('acquisition')
-    pp.encode_categorical_columns('performance')
-    pp.encode_target_column('performance')
+    # pp.encode_categorical_columns('acquisition')
+    # pp.encode_categorical_columns('performance')
+    # pp.encode_target_column('performance')
     if save:
         pp.save(PRE_PROCESSING_ENCODERS_PICKLE_PATH)
 

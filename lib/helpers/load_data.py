@@ -7,12 +7,13 @@ import numpy as np
 import os
 import glob
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 # from multiprocessing import Pool
 # from sqlalchemy import event
 # from itertools import repeat
 
 # custom modules
-from lib.db import connect
+from lib.db import connect, Acquisition
 from lib.enums import ACQUISITION_RAW_COLUMN_NAMES, PERFORMANCE_RAW_COLUMN_NAMES
 from lib.helpers.pre_process import PreProcessors, PRE_PROCESSING_ENCODERS_PICKLE_PATH
 
@@ -105,43 +106,69 @@ class Transformer:
             self.pp.encode_numerical_columns(table, df[num_columns].drop(['loan_id'], axis=1).astype('float64'))
 
         elif 'performance' in table:
-            self.set_cyclical_mdy('monthly_reporting_period', df, 'monthly_reporting')
-            self.set_cyclical_mdy('last_paid_installment_date_string', df, 'last_paid_installment')
-            self.set_cyclical_mdy('foreclosure_date_string', df, 'foreclosure')
-            self.set_cyclical_mdy('disposition_date_string', df, 'disposition')
-            self.set_cyclical_my('maturity_date_string', df, 'maturity')
-            self.set_cyclical_my('zero_balance_effective_date_string', df, 'zero_balance_effective')
+            subset = df.groupby('loan_id').apply(
+                lambda df: 1 if df.current_loan_delinquency_status.fillna(0).replace('X', 0).astype(int).max() > 0 else 0)
 
-            df.modification_flag = df.modification_flag.eq('Y').mul(1)
-            df.repurchase_make_whole_proceeds_flag = df.repurchase_make_whole_proceeds_flag.eq('Y').mul(1)
-            df.servicing_activity_indicator = df.servicing_activity_indicator.eq('Y').mul(1)
-
-            nums = df.select_dtypes(include=['int', 'float'])
-            # print(nums.columns.tolist())
-            num_columns = nums.columns.tolist()
-            self.pp.encode_numerical_columns(table, df[num_columns].drop(['loan_id'], axis=1).astype('float64'))
+            # self.set_cyclical_mdy('monthly_reporting_period', df, 'monthly_reporting')
+            # self.set_cyclical_mdy('last_paid_installment_date_string', df, 'last_paid_installment')
+            # self.set_cyclical_mdy('foreclosure_date_string', df, 'foreclosure')
+            # self.set_cyclical_mdy('disposition_date_string', df, 'disposition')
+            # self.set_cyclical_my('maturity_date_string', df, 'maturity')
+            # self.set_cyclical_my('zero_balance_effective_date_string', df, 'zero_balance_effective')
+            #
+            # df.modification_flag = df.modification_flag.eq('Y').mul(1)
+            # df.repurchase_make_whole_proceeds_flag = df.repurchase_make_whole_proceeds_flag.eq('Y').mul(1)
+            # df.servicing_activity_indicator = df.servicing_activity_indicator.eq('Y').mul(1)
+            #
+            # nums = df.select_dtypes(include=['int', 'float'])
+            # # print(nums.columns.tolist())
+            # num_columns = nums.columns.tolist()
+            # self.pp.encode_numerical_columns(table, df[num_columns].drop(['loan_id'], axis=1).astype('float64'))
+            return subset
 
         return df
 
 
-def to_sql(df, table, conn):
+def to_sql(df, table, conn=None, session=None):
     try:
-        df.to_sql(name=table, con=conn, index=False, if_exists='append')
+        if table == 'acquisition' and conn:
+            df.to_sql(name=table, con=conn, index=False, if_exists='append')
+        if table == 'performance' and session:
+            delinquent = df[df > 1]
+            not_delinquent = df[df == 0]
+
+            if not_delinquent.index.any():
+                qnd = """
+                UPDATE {0}
+                SET sdq = {1}
+                WHERE loan_id in ({2})
+                """.format('acquisition', 0, ','.join(not_delinquent.index.astype(str)))
+                conn.execute(qnd)
+
+            if delinquent.index.any():
+                qd = """
+                UPDATE {0}
+                SET sdq = {1}
+                WHERE loan_id in ({2})
+                """.format('acquisition', 1, ','.join(delinquent.index.astype(str)))
+                conn.execute(qd)
+
     except IntegrityError:
         print('rows already exist')
         return 0
     return df.shape[0]
 
 
-def iterate_and_load(iterator, table=None, conn=None, transformer=None, dry_run=False):
+def iterate_and_load(iterator, table=None, conn=None, transformer=None, dry_run=False, session=None):
     print('LOADING: {}'.format(table))
     count = 0
     for df in iterator:
-        transformer.transform_columns(df, table)
+        trans = transformer.transform_columns(df, table)
         if dry_run:
-            count += df.shape[0]
+            print(trans.head())
+            count += trans.shape[0]
         else:
-            count += to_sql(df, table, conn)
+            count += to_sql(trans, table, conn, session)
 
         # for dfs in group(iterator, 4):
         #     for df in pool.starmap(transform_columns, zip(dfs, repeat(table))):
@@ -152,10 +179,11 @@ def iterate_and_load(iterator, table=None, conn=None, transformer=None, dry_run=
 
 
 def main(path=None, conn=None, pre_processor=None, dry_run=False):
+    session = Session(bind=conn)
     for acq, perf in collect_raw_data_from_dirs(path):
         T = Transformer(pre_processor=pre_processor)
         iterate_and_load(acq, table='acquisition', conn=conn, transformer=T, dry_run=dry_run)
-        iterate_and_load(perf, table='performance', conn=conn, transformer=T, dry_run=dry_run)
+        iterate_and_load(perf, table='performance', conn=conn, transformer=T, dry_run=dry_run, session=session)
 
 
 # @event.listens_for(conn, 'before_cursor_execute')
@@ -189,5 +217,3 @@ if __name__ == '__main__':
     #
     # print(dir(p))
     # print(p.loan_age.mean_)
-
-    # conn.close()

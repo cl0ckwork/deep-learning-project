@@ -6,8 +6,8 @@ ACQUISITION_RAW_COLUMN_NAMES = ['loan_id', 'origin_channel', 'seller_name', 'ori
                                 'occupancy_type', 'property_state', 'zip_code_short',
                                 'primary_mortgage_insurance_percent',
                                 'product_type', 'co_borrower_credit_score_at_origination', 'mortgage_insurance_type',
-                                'relocation_mortgage_indicator']
-ACQUISITION_DB_COLUMN_NAMES = ['id'] + ACQUISITION_RAW_COLUMN_NAMES
+                                'relocation_mortgage_indicator', 'sdq']
+ACQUISITION_DB_COLUMN_NAMES = ACQUISITION_RAW_COLUMN_NAMES
 
 PERFORMANCE_RAW_COLUMN_NAMES = ['loan_id', 'monthly_reporting_period', 'servicer_name', 'current_interest_rate',
                                 'current_actual_upb', 'loan_age', 'remaining_months_to_legal_maturity',
