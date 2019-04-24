@@ -10,7 +10,7 @@ from lib.db import connect
 from lib.data.loader import LoanPerformanceDataset
 from lib.enums import PRE_PROCESSING_ENCODERS_PICKLE_PATH, LIVE_PRE_PROCESSING_ENCODERS_PICKLE_PATH
 
-LOCAL = True
+LOCAL = False
 USE_LIVE_PRE_PROCESSORS = not LOCAL
 CHUNK_SIZE = 100
 LOADER_ARGS = dict(
