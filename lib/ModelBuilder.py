@@ -17,70 +17,6 @@ def _get_matching_item_in_list(array, idx):
         return None
 
 
-class LayerPackage:
-    __slots__ = ('layer', 'activation')
-
-    def __init__(self, layer, activation):
-        self._validate_init(layer)
-        self._validate_init(activation)
-        self.layer = layer
-        self.activation = activation
-
-    @staticmethod
-    def _validate_init(class_input):
-        class_name = getattr(class_input, '__module__', None)
-        if not 'torch.optim' in class_name and not 'torch.nn.modules' in class_name:
-            raise Exception(
-                'You must provide torch.nn modules for performance_index and optimizer, you provided: {}'.format(
-                    type(class_input)))
-
-
-class LayerBuilder:
-    __slots__ = ('input_size', 'layer_modules', 'hidden_layers', 'output_size', 'n_layers')
-
-    def __init__(self, input_size=0, hidden_layers=None, output_size=0, layer_modules=None, hidden_activation=None):
-        self._validate_hidden_layers(hidden_layers)
-        length_of_layers = len(hidden_layers) + 1
-        self.input_size = input_size
-        self.layer_modules = layer_modules or [
-            LayerPackage(
-                nn.Linear,
-                hidden_activation or nn.LogSigmoid if n + 2 != length_of_layers else nn.ReLU
-            ) for n in range(length_of_layers)
-        ]
-        self.hidden_layers = hidden_layers
-        self.output_size = output_size
-
-    @staticmethod
-    def _validate_hidden_layers(hidden_layers):
-        if not isinstance(hidden_layers, list):
-            raise Exception(
-                'You must provide your hidden_layers as a list of ints (output sizes), you provided: {}'.format(
-                    type(hidden_layers)))
-
-    def build_layers(self):
-        layers = []
-        activations = []
-        if self.hidden_layers:
-            for idx, size in enumerate(self.hidden_layers):
-                module = _get_matching_item_in_list(self.layer_modules, idx)
-                if module:
-                    activations.append(module.activation())
-                    if idx == 0:
-                        layers.append(module.layer(self.input_size, size))
-                    else:
-                        prev_output_size = _get_matching_item_in_list(self.hidden_layers, idx - 1)
-                        layers.append(module.layer(prev_output_size, size))
-                else:
-                    raise Exception(
-                        'You are missing a layer module and activation for hidden layer at index {} with size {}'.format(
-                            idx, size))
-        # add last layer
-        last_module = self.layer_modules[-1]
-        layers.append(last_module.layer(self.hidden_layers[-1], self.output_size))
-        return layers, activations
-
-
 class Builder(nn.Module):
     __slots__ = ('layer_type', 'activations_type', 'layers', 'activations', 'output')
 
@@ -117,7 +53,7 @@ class ModelRunner:
     __slots__ = (
         'outputs', 'losses', 'gradients', 'performance_index', 'optimizer',
         'dtype', 'device', 'data_size', 'batch_size', 'model', '_start',
-        'is_image', 'dimensions', 'pred_output', 'collect_grad', 'results'
+        'is_image', 'dimensions', 'pred_output', 'collect_grad', 'results', 'stop_early_at'
     )
 
     def __init__(self,
@@ -130,7 +66,8 @@ class ModelRunner:
                  batch_size=0,
                  is_image=False,
                  dimensions=None,
-                 collect_grad=False
+                 collect_grad=False,
+                 stop_early_at=None
                  ):
         if performance_index:
             self._validate_init(performance_index)
@@ -150,6 +87,8 @@ class ModelRunner:
         self.gradients = []
         self.pred_output = []
         self.results = []
+        self.collect_grad = collect_grad
+        self.stop_early_at = stop_early_at or 0
 
     @staticmethod
     def _validate_init(class_input):
@@ -184,7 +123,6 @@ class ModelRunner:
         self.model = model
         return self.model.to(self.device)
 
-
     def _run(self, inputs, targets, lr=1e-4):
         ipt, tgt = self._to_device(inputs, targets)
         self.outputs = self.model(ipt)
@@ -217,9 +155,14 @@ class ModelRunner:
                     if (i + 1) % 100 == 0:
                         print('Epoch [%d/%d], Step [%d/%d], Loss: %.4f'
                               % (epoch + 1, epochs, i + 1, self.data_size // self.batch_size, loss.item()))
+                    if self.stop_early_at and (i + 1) % self.stop_early_at == 0:
+                        break
 
     def plot_losses_over_epoch(self, show=True, **kwargs):
-        args = {**dict(label='Error'), **kwargs}
+        args = {}
+        args.update(dict(label='Error'))
+        args.update(kwargs)
+
         df = pd.DataFrame(self.losses, columns=['error'])
         ax = df.plot.line(y='error', **args)
         if show:
@@ -231,13 +174,13 @@ class ModelRunner:
         end = time.time()
         print('Time Spent: {}'.format(end - self._start))
         self.model.eval()
-        for images, labels in test_loader:
-            images, labels = self._to_device(images, labels)
-            images = images if not self.is_image else images.view(-1, self.dimensions)
-            outputs = self.model(images)
+        for features, labels in test_loader:
+            features, labels = self._to_device(features, labels)
+            features = features if not self.is_image else features.view(-1, self.dimensions)
+            outputs = self.model(features)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
-            correct += (predicted == labels).sum()
+            correct += (predicted == labels.type(torch.long)).sum()
             self.pred_output = outputs
             stacked = np.dstack((predicted.cpu().numpy(), labels.cpu().numpy()))
             self.results.append(stacked)
@@ -247,10 +190,10 @@ class ModelRunner:
         class_correct = list(0. for i in range(10))
         class_total = list(0. for i in range(10))
         for data in test_loader:
-            images, labels = data
-            images, labels = self._to_device(images, labels)
-            images = images if not self.is_image else images.view(-1, self.dimensions)
-            outputs = self.model(images)
+            features, labels = data
+            features, labels = self._to_device(features, labels)
+            features = features if not self.is_image else features.view(-1, self.dimensions)
+            outputs = self.model(features)
             _, predicted = torch.max(outputs.data, 1)
             labels = labels.cpu().numpy()
             c = (predicted.cpu().numpy() == labels)
@@ -262,179 +205,3 @@ class ModelRunner:
 
     def get_results(self):
         return np.asarray(self.results).reshape(-1, 2)
-
-
-# GENERAL USE
-"""
-try:
-    from lib.ModelBuilder import Builder, ModelRunner, LayerBuilder
-    from lib.cm_heatmap import print_confusion_matrix
-    from lib.auc import auc_classes
-except:
-    from .lib.ModelBuilder import Builder, ModelRunner, LayerBuilder
-    from .lib.cm_heatmap import print_confusion_matrix
-    from .lib.auc import auc_classes
-"""
-
-"""
-# --------------------------------------------------------------------------------------------
-def test(name, layers, activations, optim):
-    print('\n** TEST: {} | # Layers: {} | # Activations: {} | Optimizer: {} **'.format(name, len(layers), len(activations), optim))
-
-    net = Builder(layers=layers, activations=activations)
-    print('Model: ', net)
-
-    runner = ModelRunner(
-        model=net,
-        device=device,
-        batch_size=batch_size,
-        data_size=len(train_set),
-        is_image=True,
-        dimensions=dimensions
-    )
-
-    # --------------------------------------------------------------------------------------------
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate)
-    runner.add_performance_index(criterion)
-    runner.add_optimizer(optimizer)
-    # --------------------------------------------------------------------------------------------
-    runner.run_for_epochs(data_loader=train_loader, epochs=num_epochs)
-    # --------------------------------------------------------------------------------------------
-    correct, total = runner.eval(test_loader)
-    outputs = runner.pred_output
-    print('Accuracy of the network on the 10000 test images: %d %%' % (100 * correct / total))
-
-    _, predicted = torch.max(outputs.data, 1)
-    print('Predicted: ', ' '.join('%5s' % classes[predicted[j]] for j in range(4)))
-    # --------------------------------------------------------------------------------------------
-    class_correct, class_total = runner.eval_classes(test_loader)
-    for i in range(10):
-        print('Accuracy of %5s : %2d %%' % (classes[i], 100 * class_correct[i] / class_total[i]))
-    # --------------------------------------------------------------------------------------------
-    torch.save(net.state_dict(), 'model_{}.pkl'.format(name))
-    print("END TEST: {}".format(name))
-
-
-if __name__ == '__main__':
-    layers_1 = [
-        nn.Linear(input_size, hidden_size),
-        nn.Dropout(),
-        nn.ReLU(),
-        nn.Linear(hidden_size, num_classes)
-    ]
-    activations_1 = []
-    test(1, layers_1, activations_1, 'Adam')
-"""
-
-#CONFUSION MATRIX
-"""
-def test(name, layers, activations, optim):
-    print('\n** TEST: {} | # Layers: {} | # Activations: {} | Optimizer: {} **'.format(name, len(layers), len(activations), optim))
-
-    net = Builder(layers=layers, activations=activations)
-    print('Model: ', net)
-
-    runner = ModelRunner(
-        model=net,
-        device=device,
-        batch_size=batch_size,
-        data_size=len(train_set),
-        is_image=True,
-        dimensions=dimensions
-    )
-
-    # --------------------------------------------------------------------------------------------
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate)
-    runner.add_performance_index(criterion)
-    runner.add_optimizer(optimizer)
-    # --------------------------------------------------------------------------------------------
-    runner.run_for_epochs(data_loader=train_loader, epochs=num_epochs)
-    # --------------------------------------------------------------------------------------------
-    correct, total = runner.eval(test_loader)
-    outputs = runner.pred_output
-    print('Accuracy of the network on the 10000 test images: %d %%' % (100 * correct / total))
-
-    _, predicted = torch.max(outputs.data, 1)
-    print('Predicted: ', ' '.join('%5s' % classes[predicted[j]] for j in range(4)))
-    # --------------------------------------------------------------------------------------------
-    class_correct, class_total = runner.eval_classes(test_loader)
-    for i in range(10):
-        print('Accuracy of %5s : %2d %%' % (classes[i], 100 * class_correct[i] / class_total[i]))
-    # --------------------------------------------------------------------------------------------
-    torch.save(net.state_dict(), 'model_{}.pkl'.format(name))
-    print("END TEST: {}".format(name))
-    return net, runner
-
-
-if __name__ == '__main__':
-    from sklearn.metrics import confusion_matrix
-    layers_1 = [
-        nn.Linear(input_size, hidden_size),
-        nn.ReLU(),
-        nn.Linear(hidden_size, num_classes)
-    ]
-    activations_1 = []
-    model, runner = test(1, layers_1, activations_1, 'Adam')
-    results = runner.get_results()
-    cm = confusion_matrix(results[:, 1], results[:, 0])
-    print(cm)
-    print_confusion_matrix(cm, list(classes))
-    
-"""
-# AUC
-"""
-def test(name, layers, activations, optim):
-    print('\n** TEST: {} | # Layers: {} | # Activations: {} | Optimizer: {} **'.format(name, len(layers), len(activations), optim))
-
-    net = Builder(layers=layers, activations=activations)
-    print('Model: ', net)
-
-    net.layers[-1].register_forward_hook(get_activation('last_layer'))
-
-    runner = ModelRunner(
-        model=net,
-        device=device,
-        batch_size=batch_size,
-        data_size=len(train_set),
-        is_image=True,
-        dimensions=dimensions
-    )
-
-    # --------------------------------------------------------------------------------------------
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(net.parameters(), lr=learning_rate)
-    runner.add_performance_index(criterion)
-    runner.add_optimizer(optimizer)
-    # --------------------------------------------------------------------------------------------
-    runner.run_for_epochs(data_loader=train_loader, epochs=num_epochs)
-    # --------------------------------------------------------------------------------------------
-    correct, total = runner.eval(test_loader)
-    outputs = runner.pred_output
-    print('Accuracy of the network on the 10000 test images: %d %%' % (100 * correct / total))
-
-    _, predicted = torch.max(outputs.data, 1)
-    print('Predicted: ', ' '.join('%5s' % classes[predicted[j]] for j in range(4)))
-    # --------------------------------------------------------------------------------------------
-    class_correct, class_total = runner.eval_classes(test_loader)
-    for i in range(10):
-        print('Accuracy of %5s : %2d %%' % (classes[i], 100 * class_correct[i] / class_total[i]))
-    # --------------------------------------------------------------------------------------------
-    torch.save(net.state_dict(), 'model_{}.pkl'.format(name))
-    print("END TEST: {}".format(name))
-    return net, runner
-
-
-if __name__ == '__main__':
-    from sklearn.metrics import confusion_matrix
-    layers_1 = [
-        nn.Linear(input_size, hidden_size),
-        nn.ReLU(),
-        nn.Linear(hidden_size, num_classes),
-    ]
-    activations_1 = []
-    model, runner = test(1, layers_1, activations_1, 'Adam')
-    results = runner.get_results()
-    auc_classes(classes, predictions=results[:, 0], labels=results[:, 1])
-"""

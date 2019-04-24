@@ -95,19 +95,26 @@ class Transformer:
             df.relocation_mortgage_indicator = df.relocation_mortgage_indicator.eq('Y').mul(1)
 
             nums = df.select_dtypes(include=['int', 'float'])
+
             # print(nums.columns.tolist())
-            num_columns = set(
-                ['loan_id', 'original_upb', 'original_loan_term',
-                 'original_loan_to_value', 'number_of_units',
-                 'relocation_mortgage_indicator', 'origination_year',
-                 'first_payment_year'] + nums.columns.tolist()
-            )
+            num_columns = set([
+                                  'loan_id',
+                                  'original_upb',
+                                  'original_loan_term',
+                                  'original_loan_to_value',
+                                  'number_of_units',
+                                  'relocation_mortgage_indicator',
+                                  'origination_year',
+                                  'first_payment_year'
+                              ] + nums.columns.tolist()
+                              )
 
             self.pp.encode_numerical_columns(table, df[num_columns].drop(['loan_id'], axis=1).astype('float64'))
 
         elif 'performance' in table:
             subset = df.groupby('loan_id').apply(
-                lambda df: 1 if df.current_loan_delinquency_status.fillna(0).replace('X', 0).astype(int).max() > 0 else 0)
+                lambda df: 1 if df.current_loan_delinquency_status.fillna(0).replace('X', 0).astype(
+                    int).max() > 0 else 0)
 
             # self.set_cyclical_mdy('monthly_reporting_period', df, 'monthly_reporting')
             # self.set_cyclical_mdy('last_paid_installment_date_string', df, 'last_paid_installment')

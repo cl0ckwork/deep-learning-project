@@ -28,7 +28,7 @@ class Encoding:
 
     def categorical_(self, name, categories):
         if not hasattr(self, name):
-            ohe = OneHotEncoder(sparse=False, categories='auto')
+            ohe = OneHotEncoder(sparse=False, categories='auto', handle_unknown='ignore')
             setattr(self, name, ohe)
         else:
             ohe = getattr(self, name)

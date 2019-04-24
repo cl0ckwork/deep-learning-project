@@ -6,7 +6,7 @@ from os import environ, listdir
 # custom modules
 from lib.db import connect
 from lib.helpers.pre_process import PreProcessors
-from lib.enums import PRE_PROCESSING_ENCODERS_PICKLE_PATH, EXCLUDED_CATEGORY_COLUMNS
+from lib.enums import PRE_PROCESSING_ENCODERS_PICKLE_PATH, LIVE_PRE_PROCESSING_ENCODERS_PICKLE_PATH, EXCLUDED_CATEGORY_COLUMNS
 from lib.helpers.load_data import main as load_data
 
 
@@ -40,7 +40,7 @@ def check_pre_processor(pp=None, path=None):
     print('\n ***  END CHECK *** \n')
 
 
-def main(conn=None, dry_run=False, load=False, save=True, pp_data=True, pp_cats=True):
+def main(conn=None, dry_run=False, load=False, save=True, pp_data=True, pp_cats=True, live=True):
     pp = PreProcessors(
         conn=conn,
         excluded_columns=EXCLUDED_CATEGORY_COLUMNS,
@@ -48,7 +48,7 @@ def main(conn=None, dry_run=False, load=False, save=True, pp_data=True, pp_cats=
     )
 
     if load:
-        pp.load(PRE_PROCESSING_ENCODERS_PICKLE_PATH)
+        pp.load(LIVE_PRE_PROCESSING_ENCODERS_PICKLE_PATH if live else PRE_PROCESSING_ENCODERS_PICKLE_PATH)
 
     if pp_data:
         load_data(path='raw_data', conn=conn, pre_processor=pp, dry_run=dry_run)
@@ -59,7 +59,7 @@ def main(conn=None, dry_run=False, load=False, save=True, pp_data=True, pp_cats=
         # pp.encode_categorical_columns('performance')
         # pp.encode_target_column('performance')
     if save:
-        pp.save(PRE_PROCESSING_ENCODERS_PICKLE_PATH)
+        pp.save(LIVE_PRE_PROCESSING_ENCODERS_PICKLE_PATH if live else PRE_PROCESSING_ENCODERS_PICKLE_PATH)
     return pp
 
 
@@ -129,6 +129,12 @@ if __name__ == '__main__':
                         default=PRE_PROCESSING_ENCODERS_PICKLE_PATH,
                         help="check a pickle by path"
                         )
+    parser.add_argument("--live",
+                        type=str2bool,
+                        nargs='?',
+                        const=True,
+                        help="save encoders as live?"
+                        )
 
     args = parser.parse_args()
     print(args)
@@ -144,12 +150,13 @@ if __name__ == '__main__':
             save=args.save,
             load=args.load,
             pp_data=args.pp_data,
-            pp_cats=args.pp_cats
+            pp_cats=args.pp_cats,
+            live=args.live
         )
 
     print('pickles:', listdir('pickles'))
     if args.check:
         try:
-            check_pre_processor(path=args.pickle)
+            check_pre_processor(path=args.pickle or LIVE_PRE_PROCESSING_ENCODERS_PICKLE_PATH if args.live else PRE_PROCESSING_ENCODERS_PICKLE_PATH)
         except Exception as ex:
             print('ERROR During check:', repr(ex))

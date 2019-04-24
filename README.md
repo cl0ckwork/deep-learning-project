@@ -2,6 +2,8 @@
 
 ## Setup
 - Use the `requirements.txt` file for necessary dependencies `pip install -r requirements.txt`
+- The data is stored in a remote PostGreSQL database, so fetching takes longer than average.
+- You can use local data for testing, its located in [reference](./reference)
 
 ## Pre-Processing
 The data is pre-processes in two steps:

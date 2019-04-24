@@ -11,10 +11,14 @@ def connect(local=True, **kwargs):
         host=kwargs.pop('host', None) or environ.get('DB_HOST', None) or "34.74.8.14"
     )
     connection = dict(database="loan_performance", user="gwu-dl-user", password="Gw_ml2_@")
+    args = dict()
+    args.update(connection)
+    args.update(host)
+    args.update(kwargs)
     print('Connecting:', host, kwargs)
     try:
         engine = create_engine(
-            "postgresql://{user}:{password}@{host}:5432/{database}".format(**{**connection, **host, **kwargs}))
+            "postgresql://{user}:{password}@{host}:5432/{database}".format(**args))
         return engine
     except Exception as ex:
         print('CANNOT CONNECT TO DB:', repr(ex))

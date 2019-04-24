@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import numpy as np
 from torch.utils.data import DataLoader
 from sklearn.metrics import confusion_matrix
 
@@ -10,42 +11,40 @@ from lib.data.loader import LoanPerformanceDataset
 from lib.enums import PRE_PROCESSING_ENCODERS_PICKLE_PATH, LIVE_PRE_PROCESSING_ENCODERS_PICKLE_PATH
 
 LOCAL = True
-USE_LIVE_PRE_PROCESSORS = True
-
-dataset = LoanPerformanceDataset(
-    chunk=10,  # size of the query (use a large number here)
-    # conn=connect(local=False).connect(),  # connect to remote database instance ( google cloud )
-    conn=connect(local=LOCAL).connect(),  # connect to local database (docker)
-    ignore_headers=['loan_id'],
-    target_column='sdq',
-    pre_process_pickle_path=LIVE_PRE_PROCESSING_ENCODERS_PICKLE_PATH if USE_LIVE_PRE_PROCESSORS else PRE_PROCESSING_ENCODERS_PICKLE_PATH
-)
-print(len(dataset))
-LOADER = DataLoader(
-    dataset,
+USE_LIVE_PRE_PROCESSORS = not LOCAL
+CHUNK_SIZE = 100
+LOADER_ARGS = dict(
     batch_size=1,  # size of batches from the query, 1 === size of query, 2 = 1/2 query size
     num_workers=1,
-    shuffle=False
+    shuffle=True
 )
 
+dataset = LoanPerformanceDataset(
+    chunk=CHUNK_SIZE,  # size of the query (use a large number here)
+    conn=connect(local=LOCAL).connect(),  # connect to local or remote database (docker, google cloud)
+    ignore_headers=['loan_id'],
+    target_column='sdq',
+    pre_process_pickle_path=LIVE_PRE_PROCESSING_ENCODERS_PICKLE_PATH if USE_LIVE_PRE_PROCESSORS else PRE_PROCESSING_ENCODERS_PICKLE_PATH,
+    stage='train',
+)
+
+TRAIN_LOADER = DataLoader(dataset, **LOADER_ARGS)
+
+sample, targets = next(iter(TRAIN_LOADER))
+
+INPUT_SIZE = np.prod(sample.size())
 LEARNING_RATE = 1e-4
-NUM_EPOCHS = 4
+NUM_EPOCHS = 1
 BATCH_SIZE = 1
-DATA_LEN = 10  # len(dataset)
-IS_IMAGE = False
+DATA_LEN = len(dataset)
 
-
-# your epoch iteration here..
-# for batch_idx, (features, targets) in enumerate(loader):
-#     print('batch: {} size: {}'.format(batch_idx, targets.size()))
-#     print(features.size())
-
-
-# send data to model here
+print('\n** INFO ** ')
+print('DATA_LEN:', len(dataset))
+print('INPUT_SIZE:', INPUT_SIZE)
 
 
 def main(name, layers, optim):
-    print('\n** TEST: {} | # Layers: {} | Optimizer: {} **'.format(name, len(layers), optim))
+    print('\n** TEST: {} | # Layers: {} | Optimizer: {} **\n'.format(name, len(layers), optim))
 
     net = Builder(layers=layers)
     print('Model: ', net)
@@ -54,42 +53,49 @@ def main(name, layers, optim):
         model=net,
         batch_size=BATCH_SIZE,
         data_size=DATA_LEN,
-        is_image=IS_IMAGE,
-        dimensions=10 * 826
+        is_image=True,
+        dimensions=INPUT_SIZE,
+        stop_early_at=200  # optional, to speed up local testing, remove when done
     )
 
     # --------------------------------------------------------------------------------------------
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(net.parameters(), lr=LEARNING_RATE)
+    criterion = torch.nn.MSELoss(reduction='sum')
+    opt = getattr(torch.optim, optim)
+    optimizer = opt(net.parameters(), lr=LEARNING_RATE)
     runner.add_performance_index(criterion)
     runner.add_optimizer(optimizer)
     # --------------------------------------------------------------------------------------------
-    runner.run_for_epochs(data_loader=LOADER, epochs=NUM_EPOCHS)
+    runner.run_for_epochs(data_loader=TRAIN_LOADER, epochs=NUM_EPOCHS)
     # --------------------------------------------------------------------------------------------
-    # correct, total = runner.eval(test_loader)
+
+    dataset.set_stage('test')  # use the test data
+    TEST_LOADER = DataLoader(dataset, **LOADER_ARGS)
+
+    correct, total = runner.eval(TEST_LOADER)
     # outputs = runner.pred_output
-    # print('Accuracy of the network on the 10000 test images: %d %%' % (100 * correct / total))
-    #
-    # _, predicted = torch.max(outputs.data, 1)
-    # print('Predicted: ', ' '.join('%5s' % classes[predicted[j]] for j in range(4)))
-    # # --------------------------------------------------------------------------------------------
-    # class_correct, class_total = runner.eval_classes(test_loader)
-    # for i in range(10):
-    #     print('Accuracy of %5s : %2d %%' % (classes[i], 100 * class_correct[i] / class_total[i]))
-    # # --------------------------------------------------------------------------------------------
-    # torch.save(net.state_dict(), 'model_{}.pkl'.format(name))
-    # print("END TEST: {}".format(name))
+    print('Accuracy of the network: %d %%' % (100 * correct / total))
+
+    # --------------------------------------------------------------------------------------------
+    dataset.set_stage('validate')  # use the validation data
+    VALIDATION_LOADER = DataLoader(dataset, **LOADER_ARGS)
+    val_correct, val_total = runner.eval(VALIDATION_LOADER)
+    # --------------------------------------------------------------------------------------------
+
+    torch.save(net.state_dict(), 'model_{}_{}.pkl'.format(name, optim))
+    print("END TEST: {}".format(name))
     return net, runner
 
 
 if __name__ == '__main__':
     layers = [
-        nn.Linear(20 * 826, 100),
+        nn.Linear(INPUT_SIZE, CHUNK_SIZE),
         nn.ReLU(),
-        nn.Linear(100, 2),
-        nn.Softmax()
+        nn.Linear(CHUNK_SIZE, 24),
+        nn.ReLU(),
+        nn.Linear(24, 1),
+        # nn.LogSoftmax(dim=1)
     ]
-    model, runner = main(1, layers, 'Adam')
+    model, runner = main('{}_layer'.format(len(layers)), layers, 'Adam')
     results = runner.get_results()
     cm = confusion_matrix(results[:, 1], results[:, 0])
     print(cm)
