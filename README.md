@@ -11,6 +11,7 @@ The data is pre-processes in two steps:
 2. After all the data is loaded:
    - `OneHotEncoder` is used against the categorical data
    - The target 'current_loan_delinquency_status' is encoded using `LabelEncoder`
+   - additional info on this: https://medium.com/@contactsunny/label-encoder-vs-one-hot-encoder-in-machine-learning-3fc273365621
    
 All encoders are pickled and placed in the [pickles](./pickles) dir
 They are then loaded and used to fit the data during `DataLoader` iterations
