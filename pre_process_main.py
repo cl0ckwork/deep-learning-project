@@ -138,25 +138,13 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     print(args)
+
     np.seterr(divide='ignore', invalid='ignore')
     pd.set_option('display.max_columns', None)  # or 1000
 
-    connection = connect(local=args.local, host=args.host or ('localhost' if args.local else args.host))
-    # connection = connect(local=True, host='localhost')
-
-    manual = dict(
-        conn=connection,
-        dry_run=False,
-        save=False,
-        load=False,
-        pp_data=True,
-        pp_cats=True,
-        live=False
-    )
-
+    connection = connect(local=args.local, host=args.host)
     if args.run:
         main(
-            # **manual,
             conn=connection,
             dry_run=args.dry_run,
             save=args.save,

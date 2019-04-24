@@ -36,7 +36,7 @@ def read_in_data(file_path=None):
         file_path,
         sep='|',
         names=names,
-        chunksize=10000,
+        chunksize=5000,
         dtype=DTYPES,
         memory_map=True
     )
@@ -141,10 +141,9 @@ def to_sql(df, table, conn=None, session=None):
         if table == 'acquisition' and conn:
             df.to_sql(name=table, con=conn, index=False, if_exists='append')
         if table == 'performance' and session:
-            delinquent = df[df >= 1]
+            delinquent = df[df > 1]
             not_delinquent = df[df == 0]
-            print('DELINQUENT:', delinquent.shape[0])
-            print('NOT DELINQUENT:', not_delinquent.shape[0])
+
             if not_delinquent.index.any():
                 qnd = """
                 UPDATE {0}
@@ -173,7 +172,7 @@ def iterate_and_load(iterator, table=None, conn=None, transformer=None, dry_run=
     for df in iterator:
         trans = transformer.transform_columns(df, table)
         if dry_run:
-            print("DRY RUN:", trans.head())
+            print(trans.head())
             count += trans.shape[0]
         else:
             count += to_sql(trans, table, conn, session)
@@ -190,7 +189,7 @@ def main(path=None, conn=None, pre_processor=None, dry_run=False):
     session = Session(bind=conn)
     for acq, perf in collect_raw_data_from_dirs(path):
         T = Transformer(pre_processor=pre_processor)
-        # iterate_and_load(acq, table='acquisition', conn=conn, transformer=T, dry_run=dry_run)
+        iterate_and_load(acq, table='acquisition', conn=conn, transformer=T, dry_run=dry_run)
         iterate_and_load(perf, table='performance', conn=conn, transformer=T, dry_run=dry_run, session=session)
 
 

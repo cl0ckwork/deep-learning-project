@@ -55,7 +55,7 @@ def main(name, layers, optim):
         data_size=DATA_LEN,
         is_image=True,
         dimensions=INPUT_SIZE,
-        stop_early_at=200  # optional, to speed up local testing, remove when done
+        stop_early_at=1000 # optional, to speed up local testing, remove when done
     )
 
     # --------------------------------------------------------------------------------------------
@@ -73,13 +73,13 @@ def main(name, layers, optim):
 
     correct, total = runner.eval(TEST_LOADER)
     # outputs = runner.pred_output
-    print('Accuracy of the network: %d %%' % (100 * correct / total))
 
     # --------------------------------------------------------------------------------------------
     dataset.set_stage('validate')  # use the validation data
     VALIDATION_LOADER = DataLoader(dataset, **LOADER_ARGS)
     val_correct, val_total = runner.eval(VALIDATION_LOADER)
     # --------------------------------------------------------------------------------------------
+    print('Accuracy of the network: %d %%' % (100 * correct / total))
 
     torch.save(net.state_dict(), 'model_{}_{}.pkl'.format(name, optim))
     print("END TEST: {}".format(name))
@@ -99,4 +99,4 @@ if __name__ == '__main__':
     results = runner.get_results()
     cm = confusion_matrix(results[:, 1], results[:, 0])
     print(cm)
-    print_confusion_matrix(cm, [0, 1])
+    #print_confusion_matrix(cm, [0, 1])
