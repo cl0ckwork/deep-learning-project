@@ -174,16 +174,26 @@ class ModelRunner:
         end = time.time()
         print('Time Spent: {}'.format(end - self._start))
         self.model.eval()
+        counter = 0;
         for features, labels in test_loader:
+
+           # print("feature ",features)
+           # print("label ",labels)
             features, labels = self._to_device(features, labels)
             features = features if not self.is_image else features.view(-1, self.dimensions)
             outputs = self.model(features)
             _, predicted = torch.max(outputs.data, 1)
-            total += labels.size(0)
+            total += labels.numel()
             correct += (predicted == labels.type(torch.long)).sum()
             self.pred_output = outputs
-            stacked = np.dstack((predicted.cpu().numpy(), labels.cpu().numpy()))
-            self.results.append(stacked)
+            counter = counter + 1
+            if self.stop_early_at and (counter + 1) % self.stop_early_at == 0:
+                break
+            #stacked = np.dstack((predicted.cpu().numpy(), labels.cpu().numpy()))
+            #self.results.append(stacked)
+            #print ("Correct ", correct)
+            #print("total ",total)
+            #print(counter)
         return correct, total
 
     def eval_classes(self, test_loader):

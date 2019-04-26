@@ -9,6 +9,11 @@ ACQUISITION_RAW_COLUMN_NAMES = ['loan_id', 'origin_channel', 'seller_name', 'ori
                                 'relocation_mortgage_indicator', 'sdq']
 ACQUISITION_DB_COLUMN_NAMES = ACQUISITION_RAW_COLUMN_NAMES
 
+FEATURE1 = ['loan_id,','original_combined_loan_to_value,','borrower_credit_score_at_origination']
+FEATURE2 = ['loan_id,','original_loan_term','original_combined_loan_to_value','borrower_credit_score_at_origination','original_interest_rate','original_upb']
+FEATURE3 = ['loan_id','original_combined_loan_to_value','borrower_credit_score_at_origination','original_interest_rate','original_debt_to_income_ratio']
+
+
 PERFORMANCE_RAW_COLUMN_NAMES = ['loan_id', 'monthly_reporting_period', 'servicer_name', 'current_interest_rate',
                                 'current_actual_upb', 'loan_age', 'remaining_months_to_legal_maturity',
                                 'adjusted_months_to_maturity', 'maturity_date_string', 'metro_stats_area',
