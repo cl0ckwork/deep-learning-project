@@ -172,7 +172,7 @@ def iterate_and_load(iterator, table=None, conn=None, transformer=None, dry_run=
     for df in iterator:
         trans = transformer.transform_columns(df, table)
         if dry_run:
-            print(trans.head())
+            print("DRY RUN:", trans.head())
             count += trans.shape[0]
         else:
             count += to_sql(trans, table, conn, session)
