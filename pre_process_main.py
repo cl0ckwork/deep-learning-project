@@ -142,9 +142,22 @@ if __name__ == '__main__':
     np.seterr(divide='ignore', invalid='ignore')
     pd.set_option('display.max_columns', None)  # or 1000
 
-    connection = connect(local=args.local, host=args.host)
+    connection = connect(local=args.local, host=args.host or ('localhost' if args.local else args.host))	    
+    # connection = connect(local=True, host='localhost')	
+
+     manual = dict(	
+        conn=connection,	
+        dry_run=False,	
+        save=False,	
+        load=False,	
+        pp_data=True,	
+        pp_cats=True,	
+        live=False	
+    )	
+        
     if args.run:
         main(
+            # **manual,
             conn=connection,
             dry_run=args.dry_run,
             save=args.save,
@@ -153,6 +166,8 @@ if __name__ == '__main__':
             pp_cats=args.pp_cats,
             live=args.live
         )
+        
+        
 
     print('pickles:', listdir('pickles'))
     if args.check:
