@@ -141,7 +141,7 @@ def to_sql(df, table, conn=None, session=None):
         if table == 'acquisition' and conn:
             df.to_sql(name=table, con=conn, index=False, if_exists='append')
         if table == 'performance' and session:
-            delinquent = df[df > 1]
+            delinquent = df[df >= 1]
             not_delinquent = df[df == 0]
 
             if not_delinquent.index.any():
