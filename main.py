@@ -147,7 +147,7 @@ if __name__ == '__main__':
         nn.Linear(NUERONS_l1, CHUNK_SIZE),
         nn.Softmax(dim=1)
     ]
-    model4, runner4 = main('{}_layer'.format(len(layers4)), layers4, 'Adam',0,0)
+    model4, runner4 = main('{}_layer'.format(len(layers4)), layers4, 'Adam',0,0.037)
     results4 = runner4.get_results()
     cm4 = confusion_matrix( results4[:, 1],results4[:, 0])
     print("2 Layer Softmax  Model ")
