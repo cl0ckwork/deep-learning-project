@@ -53,7 +53,7 @@ class ModelRunner:
     __slots__ = (
         'outputs', 'losses', 'gradients', 'performance_index', 'optimizer',
         'dtype', 'device', 'data_size', 'batch_size', 'model', '_start',
-        'is_image', 'dimensions', 'pred_output', 'collect_grad', 'results', 'stop_early_at'
+        'is_image', 'dimensions', 'pred_output', 'collect_grad', 'results', 'stop_early_at','adjustment','drop'
     )
 
     def __init__(self,
@@ -67,7 +67,7 @@ class ModelRunner:
                  is_image=False,
                  dimensions=None,
                  collect_grad=False,
-                 stop_early_at=None
+                 stop_early_at=None,
                  ):
         if performance_index:
             self._validate_init(performance_index)
@@ -89,7 +89,6 @@ class ModelRunner:
         self.results = []
         self.collect_grad = collect_grad
         self.stop_early_at = stop_early_at or 0
-
     @staticmethod
     def _validate_init(class_input):
         class_name = getattr(class_input, '__module__', None)
@@ -122,6 +121,12 @@ class ModelRunner:
     def add_model(self, model):
         self.model = model
         return self.model.to(self.device)
+
+    def add_adjustment(self,adjustment):
+        self.adjustment=adjustment
+
+    def add_Droput(self,drop):
+        self.drop = nn.Dropout(drop)
 
     def _run(self, inputs, targets, lr=1e-4):
         ipt, tgt = self._to_device(inputs, targets)
@@ -176,25 +181,37 @@ class ModelRunner:
         self.model.eval()
         counter = 0;
         for features, labels in test_loader:
-
-           # print("feature ",features)
-           # print("label ",labels)
+            if self.stop_early_at and (counter + 1) % self.stop_early_at == 0:
+                break
+            #print("feature ",features)
+            #print("label ",labels)
             features, labels = self._to_device(features, labels)
             features = features if not self.is_image else features.view(-1, self.dimensions)
             outputs = self.model(features)
-            _, predicted = torch.max(outputs.data, 1)
+            if(self.adjustment > 0 ):
+                #print("ADJUSTING")
+                outputs = torch.ceil(outputs*self.adjustment)
+                outputs = torch.clamp(outputs, min=0, max=1)
+            else:
+                outputs = torch.round(outputs)
+            #print("Outputs ",outputs)
+            #_, predicted = torch.max(outputs.data, 1)
             total += labels.numel()
-            correct += (predicted == labels.type(torch.long)).sum()
+            #correct += (predicted == labels.type(torch.long)).sum()
+            predicted = (outputs == labels).sum()
+            correct += predicted
             self.pred_output = outputs
             counter = counter + 1
-            if self.stop_early_at and (counter + 1) % self.stop_early_at == 0:
-                break
-            #stacked = np.dstack((predicted.cpu().numpy(), labels.cpu().numpy()))
-            #self.results.append(stacked)
+            #print("Predicted ",predicted.cpu().numpy() )
+            #print("label ",labels.cpu().numpy())
+
+            stacked = np.dstack((torch.round(outputs).detach().cpu().numpy(), (labels.cpu().numpy())))
+            self.results.append(stacked)
             #print ("Correct ", correct)
-            #print("total ",total)
-            #print(counter)
+            # print("total ",total)
+            # print(counter)
         return correct, total
+
 
     def eval_classes(self, test_loader):
         class_correct = list(0. for i in range(10))
