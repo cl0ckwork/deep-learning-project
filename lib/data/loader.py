@@ -29,20 +29,20 @@ class LoanPerformanceDataset(TorchDataset):
                  ignore_headers=None,
                  target_column=None,
                  pre_process_pickle_path=None,
-                 stage=None
+                 stage=None,
+                 to_tensor=True
                  ):
         self.conn = conn
         self.headers = [h for h in (headers or self._default_headers) if h not in (ignore_headers or [])]
         self.target_column = target_column
         self.split_ratio = split_ratio or [78, 11, 11]
         self.stage = stage or 'train'
-        # self.train_q = None
-        # self.test_q = None
-        # self.validate_q = None
         self.chunk = chunk
+        self.to_tensor = to_tensor
         self.len_ = 0
         self.pre_process_pickle_path = pre_process_pickle_path
         self.proxy = self._set_proxy()
+        self.target_proxy = self._set_target_proxy()
         self.cat_encoders, self.acq_num_encoder, self.perf_num_encoder, self.target_encoder = self._load_encoders()
 
     @property
@@ -58,53 +58,22 @@ class LoanPerformanceDataset(TorchDataset):
         )
         return self.conn.execution_options(stream_results=True).execute(q)
 
-    # def _get_train_test_split(self):
-    #     if not sum(self.split_ratio) == 100:
-    #         raise Exception('split_ratio must add up to 100')
-    #
-    #     print('FETCHING:  geting test/train/validate data with ratio:', self.split_ratio)
-    #     train, test, val = self.split_ratio
-    #     self.test_q = """
-    #     SELECT loan_id
-    #     FROM acquisition
-    #     WHERE ABS(MOD(loan_id, {})) = 1
-    #     """.format(test / 10)
-    #
-    #     test_cur = self.conn.execute(self.test_q)
-    #     test_ids = [str(loan_id) for loan_id, in test_cur]
-    #     self.test_ids = test_ids
-    #
-    #     self.validate_q = """
-    #     SELECT loan_id
-    #     FROM acquisition
-    #     WHERE loan_id NOT IN ({1})
-    #     AND ABS(MOD(loan_id, {0})) = 2
-    #     """.format(
-    #         2.5,
-    #         ','.join(test_ids)
-    #     )
-    #
-    #     val_cur = self.conn.execute(self.validate_q)
-    #     val_ids = [str(loan_id) for loan_id, in val_cur]
-    #     self.val_ids = val_ids
-    #     not_train_ids = test_ids + val_ids
-    #
-    #     self.train_q = """
-    #     SELECT {}
-    #     FROM acquisition
-    #     WHERE loan_id NOT IN ({})
-    #     """.format(
-    #         ','.join(self.headers) or '*',
-    #         ','.join(not_train_ids)
-    #     )
+    def _set_target_proxy(self):
+        q = """
+              SELECT {} FROM {} 
+              WHERE ABS(MOD(loan_id, 8)) = 2
+              AND sdq > 0
+              """.format(
+            ','.join(self.headers) or '*',
+            self.stage,
+        )
+        return self.conn.execution_options(stream_results=True).execute(q)
 
-    # return self._set_proxy()
-
-    def _iterate(self):
+    def _iterate(self, proxy, chunk=None):
         while True:
-            batch = self.proxy.fetchmany(self.chunk)
+            batch = proxy.fetchmany(chunk or self.chunk)
             if not batch:
-                self.proxy.close()
+                proxy.close()
                 return
             yield batch
 
@@ -113,14 +82,11 @@ class LoanPerformanceDataset(TorchDataset):
         pp.load(self.pre_process_pickle_path)
 
         acq = pp.encoders.get('acquisition_numerical')
-        # perf = pp.encoders.get('performance_numerical')
         acq_cat = pp.encoders.get('acquisition_categorical')
-        # perf_cat = pp.encoders.get('performance_categorical')
         tgt = pp.encoders.get('target')
 
         cat_encoders = dict()
         cat_encoders.update(acq_cat.encoder.__dict__)
-        # cat_encoders.update(perf_cat.encoder.__dict__)
         return cat_encoders, acq, None, tgt
 
     def _encode(self, df):
@@ -128,13 +94,9 @@ class LoanPerformanceDataset(TorchDataset):
         acq_standard = self.acq_num_encoder.encoder.standard.transform(
             df[self.acq_num_encoder.columns].astype('float64')
         )
-        # perf_standard = self.perf_num_encoder.encoder.standard.transform(
-        #     df[self.perf_num_encoder.columns].astype('float64')
-        # )
 
         frames = [
             pd.DataFrame(acq_standard, columns=self.acq_num_encoder.columns).fillna(0),
-            # pd.DataFrame(perf_standard, columns=self.perf_num_encoder.columns)
         ]
 
         for column in categories:
@@ -156,21 +118,25 @@ class LoanPerformanceDataset(TorchDataset):
                         print(data.values)
                         print('ERROR IN CATEGORICAL TRANSFORM:', repr(ex))
         # targets = self.target_encoder.encoder.target.transform(df[self.target_column].values)
-        return pd.concat(frames, axis=1), df[self.target_column].fillna(0).values
+        return pd.concat(frames, axis=1), df[self.target_column].fillna(0)
 
     def __getitem__(self, index):
-        nxt = next(self._iterate())
-        df = pd.DataFrame(nxt, columns=self.headers)
+        nxt = next(self._iterate(self.proxy))
+        nxt_tgts = next(self._iterate(self.target_proxy, int(self.chunk * .25)))
+        df = pd.DataFrame(nxt + nxt_tgts, columns=self.headers).sample(frac=1)
         features, targets = self._encode(df)
-        # c = features.copy()
-        # c['sdq'] = targets
-        # c.to_csv("{}_data.csv".format(self.stage), index=False)
-        # return torch.from_numpy(features.values).type(torch.FloatTensor), torch.tensor(targets, dtype=torch.long)
-        return torch.from_numpy(features.values).type(torch.FloatTensor), torch.tensor(targets, dtype=torch.float)
+        c = features.copy()
+        c['sdq'] = targets.values
+        c.to_csv("{}_data.csv".format(self.stage), index=False)
+        if self.to_tensor:
+            return torch.from_numpy(features.values).type(torch.FloatTensor), torch.tensor(targets.values,
+                                                                                           dtype=torch.float)
+        return features, targets
 
     def set_stage(self, stage):
         self.stage = stage
-        self._set_proxy()
+        self.proxy = self._set_proxy()
+        self.target_proxy = self._set_target_proxy()
         return self.stage
 
     @property
