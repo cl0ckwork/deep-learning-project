@@ -5,8 +5,13 @@
 - The data is stored in a remote PostGreSQL database, so fetching takes longer than local.
 - You can use local data for testing, its located in [reference](./reference)
 
+
+## Running the Models:
+The `main.py` located [here](./main.py) is where the models are ran/tested. Under the `if __name__ == '__main__':` block.
+At the top there is a `STOP_EARLY` variable, this stops the dataloader iterations early, for the sake of time since the dataset is a bit large and SQL is slow.
+
 ## Pre-Processing
-The data is pre-processes in two steps:
+The data is pre-processed in two steps:
 1. numerical data  partially fitted during loading into the database as `StandardScaler`
 2. After all the data is loaded:
    - `OneHotEncoder` is used against the categorical data
@@ -20,9 +25,6 @@ the production encoder begins with `LIVE.` [here](./pickles/LIVE.pre_processing_
 ## Feature selection
 Features were explored as samples of the large dataset using a [jupyter notebook](./feature_selection.ipynb), a script version is located [here](./feature_selection.py)
 
-## Running the Models:
-The `main.py` located [here](./main.py) is where the models are ran/tested. Under the `if __name__ == '__main__':` block.
-At the top there is a `STOP_EARLY` variable, this stops the dataloader iterations early, for the sake of time since the dataset is a bit large.
 
 ## Loading Data
 The data loading logic is located in [here](./lib/data/loader.py)
