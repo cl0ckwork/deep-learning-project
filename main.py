@@ -3,6 +3,8 @@ import torch.nn as nn
 import numpy as np
 from torch.utils.data import DataLoader
 from sklearn.metrics import confusion_matrix
+from pandas_ml import ConfusionMatrix
+import matplotlib.pyplot as plt
 
 from lib.ModelBuilder import Builder, ModelRunner
 from lib.measurements.cm_heatmap import print_confusion_matrix
@@ -46,7 +48,7 @@ print('INPUT_SIZE:', INPUT_SIZE)
 
 
 def main(name, layers, optim,drop,adjust):
-    print('\n** TEST: {} | # Layers: {} | Optimizer: {} **\n'.format(name, len(layers), optim))
+    print('\n** TEST: {} | # Layers: {} | Optimizer: {} **\n'.format(name, len(layers)/2, optim))
 
     net = Builder(layers=layers)
     print('Model: ', net)
@@ -98,11 +100,14 @@ if __name__ == '__main__':
         nn.Linear(NUERONS_l1, CHUNK_SIZE),
         nn.ReLU(),
     ]
-    model, runner = main('{}_layer'.format(len(layers)), layers, 'Adam',0,1)
+    model, runner = main('{}_layer'.format(len(layers)/2), layers, 'Adam',0,1)
     results = runner.get_results()
-    cm = confusion_matrix(results[:, 1],results[:, 0])
+    #cm = confusion_matrix(results[:, 1],results[:, 0])
+    cm = ConfusionMatrix(results[:, 1],results[:, 0])
     print("2 Layer Relu Model ")
     print(cm)
+    cm.plot()
+    plt.show()
     #print_confusion_matrix(cm, [0, 1])
 
 ## Sigmoid model
@@ -113,11 +118,14 @@ if __name__ == '__main__':
         nn.Linear(NUERONS_l1, CHUNK_SIZE),
         nn.Sigmoid()
     ]
-    model2, runner2 = main('{}_layer'.format(len(layers2)), layers2, 'Adam',0,0)
+    model2, runner2 = main('{}_layer'.format(len(layers2)/2), layers2, 'Adam',0,0)
     results2 = runner2.get_results()
-    cm2 = confusion_matrix( results2[:, 1],results2[:, 0])
+    cm2 = ConfusionMatrix( results2[:, 1],results2[:, 0])
     print("2 Layer SIGMOID Model ")
     print(cm2)
+    cm2.plot()
+    plt.show()
+
     #print_confusion_matrix(cm, [0, 1])
 
 
@@ -131,11 +139,14 @@ if __name__ == '__main__':
         nn.Linear(NUERONS_l2, CHUNK_SIZE),
         nn.ReLU()
     ]
-    model3, runner3 = main('{}_layer'.format(len(layers3)), layers3, 'Adam',0,1)
+    model3, runner3 = main('{}_layer'.format(len(layers3)/2), layers3, 'Adam',0,1)
     results3 = runner3.get_results()
-    cm3 = confusion_matrix( results3[:, 1],results3[:, 0])
+    cm3 = ConfusionMatrix( results3[:, 1],results3[:, 0])
     print("3 Layer RELu Model " )
     print( cm3)
+    cm3.plot()
+    plt.show()
+
     #print_confusion_matrix(cm, [0, 1])
 
 
@@ -147,11 +158,14 @@ if __name__ == '__main__':
         nn.Linear(NUERONS_l1, CHUNK_SIZE),
         nn.Softmax(dim=1)
     ]
-    model4, runner4 = main('{}_layer'.format(len(layers4)), layers4, 'Adam',0,0.037)
+    model4, runner4 = main('{}_layer'.format(len(layers4)/2), layers4, 'Adam',0,0.037)
     results4 = runner4.get_results()
-    cm4 = confusion_matrix( results4[:, 1],results4[:, 0])
+    cm4 = ConfusionMatrix( results4[:, 1],results4[:, 0])
     print("2 Layer Softmax  Model ")
     print(cm4)
+    cm4.plot()
+    plt.show()
+
     #print_confusion_matrix(cm, [0, 1])
 
 ## dropout model
@@ -162,10 +176,13 @@ if __name__ == '__main__':
         nn.Linear(NUERONS_l1, CHUNK_SIZE),
         nn.ReLU(),
     ]
-    model5, runner5 = main('{}_layer'.format(len(layers5)), layers5, 'Adam',0.2,1)
+    model5, runner5 = main('{}_layer'.format(len(layers5)/2), layers5, 'Adam',0.2,1)
     results5 = runner5.get_results()
-    cm5 = confusion_matrix( results5[:, 1],results5[:, 0])
+    cm5 = ConfusionMatrix( results5[:, 1],results5[:, 0])
     print("2 Layer Relu  Model with droput ")
     print(cm5)
+    cm5.plot()
+    plt.show()
+
     #print_confusion_matrix(cm, [0, 1])
 
