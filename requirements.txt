@@ -5,3 +5,4 @@ SQLAlchemy==1.2.1
 psycopg2==2.7.6.1
 psycopg2-binary==2.8
 seaborn==0.8.1
+pandas-ml==0.6.1

@@ -33,8 +33,9 @@ class LoanPerformanceDataset(TorchDataset):
                  to_tensor=True
                  ):
         self.conn = conn
-        self.headers = [h for h in (headers or self._default_headers) if h != 'loan_id']
+        self.headers = [h for h in self._default_headers if h != 'loan_id']
         self.target_column = target_column
+        self.subset_headers = headers or []
         self.ignore_headers = ignore_headers or []
         self.split_ratio = split_ratio or [78, 11, 11]
         self.stage = stage or 'train'
@@ -96,12 +97,20 @@ class LoanPerformanceDataset(TorchDataset):
             df[self.acq_num_encoder.columns].astype('float64')
         )
 
-        frames = [
-            pd.DataFrame(acq_standard, columns=self.acq_num_encoder.columns).fillna(0),
-        ]
+        if self.subset_headers:
+            frames = [
+                pd.DataFrame(acq_standard, columns=self.acq_num_encoder.columns)[
+                    [c for c in self.subset_headers if c in self.acq_num_encoder.columns]
+                ].fillna(0),
+            ]
+        else:
+            frames = [
+                pd.DataFrame(acq_standard, columns=self.acq_num_encoder.columns).fillna(0),
+            ]
 
         for column in categories:
-            if column != self.target_column:
+            if column != self.target_column \
+                    and (column not in self.ignore_headers or column in self.subset_headers):
                 encoder = self.cat_encoders.get(column)
                 if encoder:
                     try:
@@ -196,6 +205,17 @@ if __name__ == '__main__':
         ignore_headers=['co_borrower_credit_score_at_origination'],
         target_column='sdq',
         stage='train',
+        headers=[
+            'borrower_credit_score_at_origination',
+            'original_upb',
+            'original_debt_to_income_ratio',
+            'original_loan_to_value',
+            'co_borrower_credit_score_at_origination',
+            'primary_mortgage_insurance_percent',
+            'first_payment_month_cos',
+            'zip_code_short',
+            'origination_month_cos'
+        ],
         # stage='test',
         # stage='validate',
         pre_process_pickle_path='../../' + (
