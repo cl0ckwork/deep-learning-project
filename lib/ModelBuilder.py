@@ -7,7 +7,7 @@ import time
 
 
 def get_device():
-    return torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def _get_matching_item_in_list(array, idx):
@@ -89,6 +89,7 @@ class ModelRunner:
         self.results = []
         self.collect_grad = collect_grad
         self.stop_early_at = stop_early_at or 0
+
     @staticmethod
     def _validate_init(class_input):
         class_name = getattr(class_input, '__module__', None)
@@ -122,10 +123,10 @@ class ModelRunner:
         self.model = model
         return self.model.to(self.device)
 
-    def add_adjustment(self,adjustment):
-        self.adjustment=adjustment
+    def add_adjustment(self, adjustment):
+        self.adjustment = adjustment
 
-    def add_Droput(self,drop):
+    def add_Droput(self, drop):
         self.drop = nn.Dropout(drop)
 
     def _run(self, inputs, targets, lr=1e-4):
@@ -179,16 +180,14 @@ class ModelRunner:
         end = time.time()
         print('Time Spent: {}'.format(end - self._start))
         self.model.eval()
-        counter = 0;
+        counter = 0
         for features, labels in test_loader:
             if self.stop_early_at and (counter + 1) % self.stop_early_at == 0:
                 break
-            #print("feature ",features)
-            #print("label ",labels)
+
             features, labels = self._to_device(features, labels)
             features = features if not self.is_image else features.view(-1, self.dimensions)
             outputs = self.model(features)
-            #print("PreOutputs ", outputs)
             if(self.adjustment == 1 ):
                 #print("ADJUSTING")
                 outputs = torch.ceil(outputs*self.adjustment)
@@ -204,21 +203,14 @@ class ModelRunner:
             #print("Outputs ",outputs)
             #_, predicted = torch.max(outputs.data, 1)
             total += labels.numel()
-            #correct += (predicted == labels.type(torch.long)).sum()
             predicted = (outputs == labels).sum()
             correct += predicted
             self.pred_output = outputs
             counter = counter + 1
-            #print("Predicted ",predicted.cpu().numpy() )
-            #print("label ",labels.cpu().numpy())
 
             stacked = np.dstack((torch.round(outputs).detach().cpu().numpy(), (labels.cpu().numpy())))
             self.results.append(stacked)
-            #print ("Correct ", correct)
-            # print("total ",total)
-            # print(counter)
         return correct, total
-
 
     def eval_classes(self, test_loader):
         class_correct = list(0. for i in range(10))

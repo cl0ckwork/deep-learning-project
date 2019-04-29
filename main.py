@@ -15,8 +15,8 @@ from lib.enums import PRE_PROCESSING_ENCODERS_PICKLE_PATH, LIVE_PRE_PROCESSING_E
 LOCAL = False
 USE_LIVE_PRE_PROCESSORS = not LOCAL
 CHUNK_SIZE = 100
-NUERONS_l1 =1000
-NUERONS_l2 =1000
+NUERONS_l1 = 1000
+NUERONS_l2 = 1000
 LOADER_ARGS = dict(
     batch_size=1,  # size of batches from the query, 1 === size of query, 2 = 1/2 query size
     num_workers=1,
@@ -26,7 +26,7 @@ LOADER_ARGS = dict(
 dataset = LoanPerformanceDataset(
     chunk=CHUNK_SIZE,  # size of the query (use a large number here)
     conn=connect(local=LOCAL).connect(),  # connect to local or remote database (docker, google cloud)
-    ignore_headers=['loan_id'],
+    ignore_headers=['co_borrower_credit_score_at_origination'],
     target_column='sdq',
     pre_process_pickle_path=LIVE_PRE_PROCESSING_ENCODERS_PICKLE_PATH if USE_LIVE_PRE_PROCESSORS else PRE_PROCESSING_ENCODERS_PICKLE_PATH,
     stage='train',
@@ -41,14 +41,16 @@ LEARNING_RATE = 1e-4
 NUM_EPOCHS = 1
 BATCH_SIZE = 1
 DATA_LEN = len(dataset)
+STOP_EARLY = CHUNK_SIZE * 5
 
 print('\n** INFO ** ')
 print('DATA_LEN:', len(dataset))
 print('INPUT_SIZE:', INPUT_SIZE)
+print('STOP_EARLY:', STOP_EARLY)
 
 
-def main(name, layers, optim,drop,adjust):
-    print('\n** TEST: {} | # Layers: {} | Optimizer: {} **\n'.format(name, len(layers)/2, optim))
+def main(name, layers, optim, drop, adjust):
+    print('\n** TEST: {} | # Layers: {} | Optimizer: {} **\n'.format(name, len(layers), optim))
 
     net = Builder(layers=layers)
     print('Model: ', net)
@@ -59,9 +61,9 @@ def main(name, layers, optim,drop,adjust):
         data_size=DATA_LEN,
         is_image=True,
         dimensions=INPUT_SIZE,
-        stop_early_at=300, # optional, to speed up local testing, remove when done
+        stop_early_at=STOP_EARLY,  # optional, to speed up local testing, remove when done
 
-   )
+    )
 
     # --------------------------------------------------------------------------------------------
     criterion = torch.nn.MSELoss(reduction='sum')
@@ -92,8 +94,9 @@ def main(name, layers, optim,drop,adjust):
     print("END TEST: {}".format(name))
     return net, runner
 
-## Trying with Adam
+
 if __name__ == '__main__':
+    ## Trying with Adam
     layers = [
         nn.Linear(INPUT_SIZE, NUERONS_l1),
         nn.ReLU(),
@@ -110,8 +113,7 @@ if __name__ == '__main__':
     plt.show()
     #print_confusion_matrix(cm, [0, 1])
 
-## Sigmoid model
-if __name__ == '__main__':
+    ## Sigmoid model
     layers2 = [
         nn.Linear(INPUT_SIZE, NUERONS_l1),
         nn.ReLU(),
@@ -128,9 +130,7 @@ if __name__ == '__main__':
 
     #print_confusion_matrix(cm, [0, 1])
 
-
-## Relu model 3 layer
-if __name__ == '__main__':
+    ## Relu model 3 layer
     layers3 = [
         nn.Linear(INPUT_SIZE, NUERONS_l1),
         nn.ReLU(),
@@ -149,9 +149,7 @@ if __name__ == '__main__':
 
     #print_confusion_matrix(cm, [0, 1])
 
-
-## Softmax model
-if __name__ == '__main__':
+    ## Softmax model
     layers4 = [
         nn.Linear(INPUT_SIZE, NUERONS_l1),
         nn.ReLU(),
@@ -168,8 +166,7 @@ if __name__ == '__main__':
 
     #print_confusion_matrix(cm, [0, 1])
 
-## dropout model
-if __name__ == '__main__':
+    ## dropout model
     layers5 = [
         nn.Linear(INPUT_SIZE, NUERONS_l1),
         nn.ReLU(),
@@ -185,4 +182,3 @@ if __name__ == '__main__':
     plt.show()
 
     #print_confusion_matrix(cm, [0, 1])
-

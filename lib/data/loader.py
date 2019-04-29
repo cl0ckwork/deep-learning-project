@@ -33,8 +33,9 @@ class LoanPerformanceDataset(TorchDataset):
                  to_tensor=True
                  ):
         self.conn = conn
-        self.headers = [h for h in (headers or self._default_headers) if h not in (ignore_headers or [])]
+        self.headers = [h for h in (headers or self._default_headers) if h != 'loan_id']
         self.target_column = target_column
+        self.ignore_headers = ignore_headers or []
         self.split_ratio = split_ratio or [78, 11, 11]
         self.stage = stage or 'train'
         self.chunk = chunk
@@ -42,7 +43,7 @@ class LoanPerformanceDataset(TorchDataset):
         self.len_ = 0
         self.pre_process_pickle_path = pre_process_pickle_path
         self.proxy = self._set_proxy()
-        self.target_proxy = self._set_target_proxy()
+        # self.target_proxy = self._set_target_proxy()
         self.cat_encoders, self.acq_num_encoder, self.perf_num_encoder, self.target_encoder = self._load_encoders()
 
     @property
@@ -118,16 +119,26 @@ class LoanPerformanceDataset(TorchDataset):
                         print(data.values)
                         print('ERROR IN CATEGORICAL TRANSFORM:', repr(ex))
         # targets = self.target_encoder.encoder.target.transform(df[self.target_column].values)
-        return pd.concat(frames, axis=1), df[self.target_column].fillna(0)
+        features = pd.concat(frames, axis=1)
+        features.drop(self.ignore_headers, axis=1, inplace=True)
+        return features, df[self.target_column].fillna(0)
 
     def __getitem__(self, index):
-        nxt = next(self._iterate(self.proxy))
-        nxt_tgts = next(self._iterate(self.target_proxy, int(self.chunk * .25)))
-        df = pd.DataFrame(nxt + nxt_tgts, columns=self.headers).sample(frac=1)
+        # chunk_sub = int(self.chunk * .95)
+        nxt = next(self._iterate(self.proxy, self.chunk))
+        df = pd.DataFrame(nxt, columns=self.headers)
+        # we're padding the data with extra positive targets, since there are generally less.
+        #  we get extras to account for the dropped dups below
+        # nxt_tgts = next(self._iterate(self.target_proxy, int(self.chunk * .20)))
+        # df = pd.DataFrame(nxt + nxt_tgts, columns=self.headers)  # .sample(frac=1)
+        # df.drop_duplicates(subset="loan_id", keep='first', inplace=True)
+        # df.drop(columns=["loan_id"], axis=1, inplace=True)
+        # df = df.sample(self.chunk)  # ensure we always return the requested size
+
         features, targets = self._encode(df)
-        c = features.copy()
-        c['sdq'] = targets.values
-        c.to_csv("{}_data.csv".format(self.stage), index=False)
+        # c = features.copy()
+        # c['sdq'] = targets.values
+        # c.to_csv("{}_data.csv".format(self.stage), index=False)
         if self.to_tensor:
             return torch.from_numpy(features.values).type(torch.FloatTensor), torch.tensor(targets.values,
                                                                                            dtype=torch.float)
@@ -136,7 +147,7 @@ class LoanPerformanceDataset(TorchDataset):
     def set_stage(self, stage):
         self.stage = stage
         self.proxy = self._set_proxy()
-        self.target_proxy = self._set_target_proxy()
+        # self.target_proxy = self._set_target_proxy()
         return self.stage
 
     @property
@@ -147,6 +158,10 @@ class LoanPerformanceDataset(TorchDataset):
 
     def __len__(self):
         return self.len
+
+    def close(self):
+        # self.target_proxy.close()
+        self.proxy.close()
 
 
 """
@@ -173,12 +188,12 @@ if __name__ == '__main__':
             break  # one iteration for testing
 
 
-    LOCAL = False
+    LOCAL = True
     pd.set_option('display.max_columns', None)  # or 1000
     dataset = LoanPerformanceDataset(
-        chunk=10000,  # size of the query (use a large number here)
+        chunk=100,  # size of the query (use a large number here)
         conn=connect(local=LOCAL).connect(),
-        ignore_headers=['loan_id'],
+        ignore_headers=['co_borrower_credit_score_at_origination'],
         target_column='sdq',
         stage='train',
         # stage='test',

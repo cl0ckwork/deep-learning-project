@@ -25,4 +25,4 @@ services:
     environment:
       DB_HOST: db
       LOGGING: "true"
-    entrypoint: python -W ignore pre_process_main.py --pp_data false --pp_cats --save --check --load
+    entrypoint: python -W ignore pre_process_main.py --pp_data --pp_cats false --save --check --load
