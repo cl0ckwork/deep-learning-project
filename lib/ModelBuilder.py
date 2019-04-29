@@ -188,13 +188,20 @@ class ModelRunner:
             features, labels = self._to_device(features, labels)
             features = features if not self.is_image else features.view(-1, self.dimensions)
             outputs = self.model(features)
-
-            if (self.adjustment > 0):
-                # print("ADJUSTING")
-                outputs = torch.ceil(outputs * self.adjustment)
+            if(self.adjustment == 1 ):
+                #print("ADJUSTING")
+                outputs = torch.ceil(outputs*self.adjustment)
                 outputs = torch.clamp(outputs, min=0, max=1)
             else:
-                outputs = torch.round(outputs)
+                if(self.adjustment!=0):
+                    outputs = torch.clamp(outputs, min=0, max=self.adjustment)
+                    scalar_multi=1/self.adjustment
+                    outputs = torch.round(outputs*scalar_multi)
+                else:
+                    outputs = torch.round(outputs)
+
+            #print("Outputs ",outputs)
+            #_, predicted = torch.max(outputs.data, 1)
             total += labels.numel()
             predicted = (outputs == labels).sum()
             correct += predicted
