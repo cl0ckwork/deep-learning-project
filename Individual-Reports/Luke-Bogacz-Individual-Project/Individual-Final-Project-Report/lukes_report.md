@@ -58,7 +58,7 @@ All categorical values were encoded using `scikit-learns` `OneHotEncoder`, this 
 Feature selection was conducted using `scikit-learn` `DecisionTreeClassifier, RandomForestClassifier`. No hyper parameter tuning was applied (mostly due to time constraints). Even without tuning parameters, both models yielded f scores of around `80` (see Figure 1 below), this is fairly high level of accuracy. More importantly it denotes that a Neural Network may not actually be necessary for the target question. 
 
 
-![Figure 1 - Ensemble F Scores](./images/dt_rf_fscores.png)
+![Figure 1 - Ensemble F Scores](../../images/dt_rf_fscores.png)
 
 However, for the purposes of the project we decided to continue using the dataset and target question give the amount of time spent on pre-processing and the academic purpose of understanding Neural Networks. Using the ensemble classifiers, we investigated feature importances on `1026` features. Because the data was analyzed using samples, the feature selections were somewhat inconsistent, however, some features seemed more consistent in importance, they were:
 
