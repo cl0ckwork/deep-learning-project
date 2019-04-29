@@ -126,6 +126,7 @@ if __name__ == '__main__':
     print("2 Layer Relu Model ")
     print(cm)
     cm.plot()
+    runner.plot_losses_over_epoch(show=False)
     plt.show()
     # print_confusion_matrix(cm, [0, 1])
 
@@ -142,6 +143,7 @@ if __name__ == '__main__':
     print("2 Layer SIGMOID Model ")
     print(cm2)
     cm2.plot()
+    runner2.plot_losses_over_epoch(show=False)
     plt.show()
 
     # print_confusion_matrix(cm, [0, 1])
@@ -161,7 +163,7 @@ if __name__ == '__main__':
     print("3 Layer RELu Model ")
     print(cm3)
     print(runner3.losses)
-    runner3.plot_losses_over_epoch()
+    runner3.plot_losses_over_epoch(show=False)
     cm3.plot()
     plt.show()
 
@@ -180,6 +182,7 @@ if __name__ == '__main__':
     print("2 Layer Softmax  Model ")
     print(cm4)
     cm4.plot()
+    runner4.plot_losses_over_epoch(show=False)
     plt.show()
 
     # print_confusion_matrix(cm, [0, 1])
@@ -197,6 +200,7 @@ if __name__ == '__main__':
     print("2 Layer Relu  Model with droput ")
     print(cm5)
     cm5.plot()
+    runner5.plot_losses_over_epoch(show=False)
     plt.show()
 
     # print_confusion_matrix(cm, [0, 1])
