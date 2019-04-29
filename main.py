@@ -1,10 +1,13 @@
+import matplotlib.pyplot as plt
+import matplotlib
+matplotlib.use('TkAgg')
+
 import torch
 import torch.nn as nn
 import numpy as np
 from torch.utils.data import DataLoader
 # from sklearn.metrics import confusion_matrix
 from pandas_ml import ConfusionMatrix
-import matplotlib.pyplot as plt
 
 from lib.ModelBuilder import Builder, ModelRunner
 # from lib.measurements.cm_heatmap import print_confusion_matrix
@@ -12,11 +15,11 @@ from lib.db import connect
 from lib.data.loader import LoanPerformanceDataset
 from lib.enums import PRE_PROCESSING_ENCODERS_PICKLE_PATH, LIVE_PRE_PROCESSING_ENCODERS_PICKLE_PATH
 
-LOCAL = True
+LOCAL = False
 USE_LIVE_PRE_PROCESSORS = not LOCAL
-CHUNK_SIZE = 100
-NUERONS_l1 = 1000
-NUERONS_l2 = 1000
+CHUNK_SIZE = 50 # batch size
+NUERONS_l1 = 200
+NUERONS_l2 = 300
 LOADER_ARGS = dict(
     batch_size=1,  # size of batches from the query, 1 === size of query, 2 = 1/2 query size
     num_workers=1,
@@ -51,10 +54,10 @@ sample, targets = next(iter(TRAIN_LOADER))
 
 INPUT_SIZE = np.prod(sample.size())
 LEARNING_RATE = 1e-4
-NUM_EPOCHS = 1
-BATCH_SIZE = 1
+NUM_EPOCHS = 5
+BATCH_SIZE = 1 # == 1 chunk
 DATA_LEN = len(dataset)
-STOP_EARLY = CHUNK_SIZE * 5
+STOP_EARLY = CHUNK_SIZE * 10
 
 print('\n** INFO ** ')
 print('DATA_LEN:', len(dataset))
@@ -109,7 +112,7 @@ def main(name, layers, optim, drop, adjust):
 
 
 if __name__ == '__main__':
-    ## Trying with Adam
+    # Trying with Adam
     layers = [
         nn.Linear(INPUT_SIZE, NUERONS_l1),
         nn.ReLU(),
@@ -157,12 +160,14 @@ if __name__ == '__main__':
     cm3 = ConfusionMatrix(results3[:, 1], results3[:, 0])
     print("3 Layer RELu Model ")
     print(cm3)
+    print(runner3.losses)
+    runner3.plot_losses_over_epoch()
     cm3.plot()
     plt.show()
 
     # print_confusion_matrix(cm, [0, 1])
 
-    ## Softmax model
+    # Softmax model
     layers4 = [
         nn.Linear(INPUT_SIZE, NUERONS_l1),
         nn.ReLU(),
