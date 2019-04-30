@@ -14,7 +14,37 @@
 ## Running the Models:
 The `main.py` located [here](./main.py) is where the models are ran/tested. Under the `if __name__ == '__main__':` block.
 At the top there is a `STOP_EARLY` variable, this stops the dataloader iterations early, for the sake of time since the dataset is a bit large and SQL is slow.
-This is the only code that is necessary to run the models, it will pull the data from a PostGres database on google cloud. 
+This is the only code that is necessary to run the models, it will pull the data from a PostGres database on google cloud.
+
+#### Model Runner
+- [File](./lib/ModelBuilder.py) use to abstract the building and running of a model. It works by passing an array of layers:
+```python
+# build the model (with a forward method)
+net = Builder(layers=[
+        nn.Linear(INPUT_SIZE, NUERONS_l1),
+        nn.ReLU(),
+        nn.Linear(NUERONS_l1, CHUNK_SIZE),
+        nn.ReLU(),
+    ])
+
+runner = ModelRunner(
+        model=net,
+        batch_size=BATCH_SIZE,
+        data_size=DATA_LEN,
+        is_image=True,
+        dimensions=INPUT_SIZE,
+        stop_early_at=STOP_EARLY,  # optional, to speed up local testing, remove when done
+
+    )
+
+criterion = torch.nn.MSELoss(reduction='sum')
+opt = getattr(torch.optim, optim)
+optimizer = opt(net.parameters(), lr=LEARNING_RATE)
+
+runner.add_performance_index(criterion) 
+runner.add_optimizer(optimizer)
+runner.run_for_epochs(data_loader=TRAIN_LOADER, epochs=NUM_EPOCHS) # run for provided # of epochs
+```
 
 ## Pre-Processing
 The data is pre-processed in two steps:
@@ -45,7 +75,8 @@ dataset = LoanPerformanceDataset(
     chunk=10,  # size of the query (use a large number here)
     conn=connect(local=False).connect(), # connect to remote database instance ( google cloud )
     ignore_headers=['co_borrower_credit_score_at_origination'],
-    target_column='sdq'
+    target_column='sdq',
+    use_files=True # use local files train_data / test_data.csv
 )
 loader = DataLoader(
     dataset,
